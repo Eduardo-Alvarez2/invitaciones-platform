@@ -13,3 +13,17 @@ class Evento(db.Model):
     imagen_portada = Column(String(250), nullable=True)
     slug = Column(String(150), unique=True, nullable=False)
     activo = Column(Boolean, default=True)
+
+
+    def to_dict(self):
+     return {
+        "id": self.id,
+        "nombre": self.nombre,
+        "fecha": self.fecha.strftime("%Y-%m-%d"),
+        "lugar": self.lugar,
+        "direccion": self.direccion,
+        "slug": self.slug,
+        "mensaje_principal": self.mensaje_principal,
+        "imagen_portada": self.imagen_portada,
+        "activo": self.activo
+     }

@@ -1,10 +1,12 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy.orm import relationship
 from database import db
 
 class Evento(db.Model):
     __tablename__ = "eventos"
 
     id = Column(Integer, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     nombre = Column(String(120), nullable=False)
     fecha = Column(DateTime, nullable=False)
     lugar = Column(String(150), nullable=False)
@@ -13,6 +15,7 @@ class Evento(db.Model):
     imagen_portada = Column(String(250), nullable=True)
     slug = Column(String(150), unique=True, nullable=False)
     activo = Column(Boolean, default=True)
+    template = Column(String(50), nullable=False, default="classic")
 
 
     def to_dict(self):
@@ -27,3 +30,8 @@ class Evento(db.Model):
         "imagen_portada": self.imagen_portada,
         "activo": self.activo
      }
+    
+    confirmaciones = relationship("Confirmacion", back_populates="evento", cascade="all, delete-orphan")
+    usuario = relationship("Usuario", back_populates="eventos")
+    imagenes = relationship("ImagenEvento", back_populates="evento", cascade="all, delete-orphan")
+    cronograma = relationship("EventoCronograma", back_populates="evento", cascade="all, delete-orphan")

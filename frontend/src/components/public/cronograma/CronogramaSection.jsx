@@ -1,4 +1,5 @@
 import CronogramaClassic from "./styles/CronogramaClassic"
+import CronogramaModern from "./styles/CronogramaModern"
 
 function CronogramaSection({ items = [], variant = "classic" }) {
 
@@ -10,6 +11,10 @@ function CronogramaSection({ items = [], variant = "classic" }) {
 
     case "classic":
       return <CronogramaClassic items={items} />
+    case "modern":
+      return <CronogramaModern items={items} />
+    // case "minimal":
+    //   return <CronogramaMinimal items={items} />
 
     default:
       return <CronogramaClassic items={items} />

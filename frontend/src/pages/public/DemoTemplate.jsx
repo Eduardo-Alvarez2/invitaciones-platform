@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import ClassicTemplate from "../../templates/classic/ClassicTemplate";
+import Template from "../../templates/Template";
 import { demoEventos } from "../../mocks/demoEventos";
 
 function DemoTemplate() {
@@ -33,7 +33,7 @@ function DemoTemplate() {
       </div>
 
       {/* 👇 TEMPLATE REAL */}
-      <ClassicTemplate evento={evento} />
+      <Template evento={evento} />
 
     </div>
   );

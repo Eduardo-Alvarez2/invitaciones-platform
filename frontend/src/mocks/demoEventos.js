@@ -1,3 +1,5 @@
+import Template from "../templates/Template";
+
 const generarFechaFutura = (dias = 30, hora = 21) => {
   const fecha = new Date();
   fecha.setDate(fecha.getDate() + dias);
@@ -12,8 +14,15 @@ export const demoEventos = {
     lugar: "Salón Los Robles",
     direccion: "Av. Siempre Viva 123",
     mensaje_principal: "Te invitamos a celebrar nuestra boda 💍",
+    template: "classic",
+       
+      imagenes: [
+           "https://images.unsplash.com/photo-1519741497674-611481863552",
+           "https://images.unsplash.com/photo-1522673607200-164d1b6ce486",
+           "https://images.unsplash.com/photo-1511285560929-80b456fea0bc"
+         ],
 
-     cronograma: [
+       cronograma: [
       { hora: "20:00", titulo: "Recepción", descripcion: "Bienvenida y recepción de invitados" },
       { hora: "21:00", titulo: "Ceremonia", descripcion: "Inicio de la ceremonia" },
       { hora: "22:30", titulo: "Cena", descripcion: "Servicio de cena" },
@@ -27,6 +36,15 @@ export const demoEventos = {
     lugar: "Quinta La Esperanza",
     direccion: "Ruta 5 km 120",
     mensaje_principal: "Celebramos mis 15 🎉",
+    template: "modern",
+    imagen_portada: "/portada_15.jpg",
+
+     imagenes: [
+            "/15_3.jpg",
+            "/15_2.jpg",
+            "/15_1.jpg"
+         ],
+
 
      cronograma: [
       { hora: "19:30", titulo: "Recepción", descripcion: "" },
@@ -43,6 +61,12 @@ export const demoEventos = {
     lugar: "Parroquia San José",
     direccion: "Centro",
     mensaje_principal: "Te invitamos a acompañarnos en este momento especial ✨",
+    template: "minimal",
+
+      imagenes: [
+        "https://images.unsplash.com/photo-1519681393784-d120267933ba",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
+      ],
 
      cronograma: [
       { hora: "11:00", titulo: "Ceremonia", descripcion: "" },

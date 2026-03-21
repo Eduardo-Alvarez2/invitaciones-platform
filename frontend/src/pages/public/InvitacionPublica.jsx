@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom"
 import { useEffect, useState } from "react"
 import { getEventoBySlug } from "../../services/EventService"
 
-import ClassicTemplate from "../../templates/classic/ClassicTemplate"
+import Template from "../../templates/Template"
 
 function InvitacionPublica() {
 
@@ -29,7 +29,7 @@ function InvitacionPublica() {
 
   if (loading) return <div>Cargando...</div>
 
-  return <ClassicTemplate evento={evento} />
+  return <Template evento={evento} />
 }
 
 export default InvitacionPublica

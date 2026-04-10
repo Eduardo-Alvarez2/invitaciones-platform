@@ -1,5 +1,6 @@
 import CountdownClassic from "./styles/CountdownClassic"
 import CountdownModern from "./styles/CountdownModern"
+import CountdownMinimal from "./styles/CountdownMinimal"
 import { useState, useEffect } from "react"
 
 function CountdownSection({ fecha, variant = "classic" }) {
@@ -37,9 +38,9 @@ function CountdownSection({ fecha, variant = "classic" }) {
     return <CountdownModern timeLeft={timeLeft} />
   }
 
-  //if (variant === "minimal") {
-    //return <CountdownMinimal timeLeft={timeLeft} />
-  //}
+  if (variant === "minimal") {
+    return <CountdownMinimal timeLeft={timeLeft} />
+  }
 
   return <CountdownClassic timeLeft={timeLeft} />
 }

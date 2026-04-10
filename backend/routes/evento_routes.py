@@ -194,7 +194,7 @@ def obtener_evento_por_slug(slug):
     for img in evento.imagenes:
         imagenes.append({
             "id": img.id,
-            "url": img.url_imagen
+            "url": img.url
         })
 
     evento_data["galeria"] = imagenes
@@ -340,7 +340,7 @@ def subir_imagen_galeria(id):
 
     nueva_imagen = ImagenEvento(
         evento_id=evento.id,
-        url_imagen=f"/{ruta_archivo}"
+        url=f"/{ruta_archivo}"
     )
 
     db.session.add(nueva_imagen)
@@ -348,7 +348,7 @@ def subir_imagen_galeria(id):
 
     return jsonify({
         "mensaje": "Imagen agregada a galería",
-        "url": nueva_imagen.url_imagen
+        "url": nueva_imagen.url
     }), 201
 
 @evento_bp.route("/eventos/<int:id>/imagenes", methods=["GET"])

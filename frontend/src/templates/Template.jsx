@@ -1,4 +1,4 @@
-import HeroSection from "../components/public/HeroSection"
+import HeroSection from "../components/public/hero/HeroSection"
 import CountdownSection from "../components/public/countdown/CountdownSection"
 import DetailsSection from "../components/public/details/DetailsSection"
 import MapSection from "../components/public/MapSection"

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getEventoById } from "../../services/EventService"; // Ajusta la ruta a tu service
-import axios from "axios"; // Para las confirmaciones que es un endpoint aparte
+import { getEventoById } from "../../services/EventService"; 
+import axios from "axios"; 
 import { 
   Users, Calendar, MapPin, Share2, 
   Edit3, CheckCircle, XCircle, MessageSquare,
@@ -22,7 +22,7 @@ function DashboardEvento() {
         const dataEvento = await getEventoById(id);
         setEvento(dataEvento);
 
-        // 2. Obtener confirmaciones (Usando tu endpoint de admin)
+        // 2. Obtener confirmaciones y estadísticas
         const token = localStorage.getItem("token");
         const resStats = await axios.get(
           `http://localhost:5000/api/admin/eventos/${dataEvento.slug}/confirmaciones`,
@@ -72,7 +72,7 @@ function DashboardEvento() {
               <Share2 size={18} /> Copiar Link
             </button>
             <Link 
-              to={`/editor/${id}`} 
+              to={`/editor-detalle/${evento.id}`}
               className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-all text-sm font-medium shadow-sm"
             >
               <Edit3 size={18} /> Editar Tarjeta

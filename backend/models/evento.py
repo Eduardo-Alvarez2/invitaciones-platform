@@ -16,7 +16,9 @@ class Evento(db.Model):
     slug = Column(String(150), unique=True, nullable=False)
     activo = Column(Boolean, default=True)
     template = Column(String(50), nullable=False, default="classic")
-
+    pagado = db.Column(db.Boolean, default=False)
+    payment_id = db.Column(db.String(100), nullable=True) # ID que te da Mercado Pago
+    status_pago = db.Column(db.String(50), default="pendiente")
 
     def to_dict(self):
      return {
@@ -28,7 +30,10 @@ class Evento(db.Model):
         "slug": self.slug,
         "mensaje_principal": self.mensaje_principal,
         "imagen_portada": self.imagen_portada,
-        "activo": self.activo
+        "activo": self.activo,
+        "pagado": self.pagado,
+        "payment_id": self.payment_id,
+        "status_pago": self.status_pago
      }
     
     confirmaciones = relationship("Confirmacion", back_populates="evento", cascade="all, delete-orphan")

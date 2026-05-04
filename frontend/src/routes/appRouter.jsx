@@ -10,6 +10,8 @@ import ProtectedRoute from "../components/auth/ProtectedRoute"
 import DemoTemplate from "../pages/public/DemoTemplate"
 import EditorInvitacion from "../pages/public/EditorInvitacion"
 import EditorDetalle from "../pages/private/EditorDetalles"
+import DashboardGeneral from "../pages/private/DashboardGeneral"
+import Checkout from "../pages/private/Checkout"
 
 function AppRouter() {
   return (
@@ -36,6 +38,14 @@ function AppRouter() {
           path="/editor"
           element={<EditorInvitacion />}
          />
+          <Route
+          path="/checkout/:id"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
 
 
       </Route>
@@ -44,7 +54,7 @@ function AppRouter() {
       <Route element={<MainLayout />}>
 
         <Route
-          path="/editor-detalle"
+          path="/editor-detalle/:id?"
           element={
             <ProtectedRoute>
               <EditorDetalle />
@@ -59,6 +69,14 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardGeneral />
+            </ProtectedRoute>
+          }
+         />
 
       </Route>
 

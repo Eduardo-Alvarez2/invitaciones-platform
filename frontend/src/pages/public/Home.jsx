@@ -40,10 +40,10 @@ function Home() {
           {token ? (
             <div className="flex gap-3">
               <button
-                onClick={() => navigate("/panel")}
+                onClick={() => navigate("/dashboard")}
                 className="px-5 py-2 text-xs uppercase tracking-widest text-white border border-white/40 rounded-full bg-white/10 hover:bg-white hover:text-black transition-all duration-500 font-bold"
               >
-                Mi cuenta
+                Mis Eventos
               </button>
 
               <button

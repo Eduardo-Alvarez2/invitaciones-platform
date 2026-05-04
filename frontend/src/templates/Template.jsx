@@ -38,7 +38,7 @@ function Template({ evento }) {
       />
 
       <GallerySection
-        imagenes={imagenes}
+        imagenes={evento.imagenes}
         variant={variant}
       />
 

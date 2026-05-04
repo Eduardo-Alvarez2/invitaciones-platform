@@ -20,6 +20,9 @@ def create_app():
     CORS(app, 
          resources={r"/api/*": {"origins": ["http://localhost:5173"]}},
          supports_credentials=True)
+    
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    app.config["UPLOAD_FOLDER"] = os.path.join(basedir, "uploads")
 
     # 📁 SERVIR ARCHIVOS SUBIDOS
     @app.route("/uploads/<path:filename>")

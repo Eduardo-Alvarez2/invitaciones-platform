@@ -9,6 +9,7 @@ from schema.evento_schema import EventoSchema
 from utils.slug import generar_slug_unico
 from flask_jwt_extended import jwt_required, get_jwt_identity
 import mercadopago
+import traceback
 
 evento_bp = Blueprint("evento_bp", __name__)
 
@@ -518,77 +519,125 @@ def listar_cronograma(id):
 @evento_bp.route("/eventos/<int:id>/pagar", methods=["POST"])
 @jwt_required()
 def crear_preferencia_pago(id):
-    # Inicializamos el SDK con el Token de tu Config
-    sdk = mercadopago.SDK(current_app.config["MP_ACCESS_TOKEN"])
-    
-    user_id = int(get_jwt_identity())
-    evento = Evento.query.get_or_404(id)
-
-    if evento.usuario_id != user_id:
-        return jsonify({"error": "No tienes permiso"}), 403
-
-    # Configuramos la preferencia
-    preference_data = {
-        "items": [
-            {
-                "title": f"Activación Invitación: {evento.nombre}",
-                "quantity": 1,
-                "unit_price": 30000.0,  # El precio 
-                "currency_id": "ARS"
-            }
-        ],
-        "back_urls": {
-            "success": f"http://localhost:5173/dashboard/evento/{id}?status=success",
-            "failure": f"http://localhost:5173/checkout/{id}?status=failure",
-            "pending": f"http://localhost:5173/checkout/{id}?status=pending"
-        },
-        "auto_return": "approved",
-        "external_reference": str(id),  # CLAVE: Para saber qué evento se pagó después
-        "notification_url": "https://situation-mouth-step.ngrok-free.dev/api/webhook-pago"
-    }
-
     try:
+        # 1. Verificación inicial de Config
+        token = current_app.config.get("MP_ACCESS_TOKEN")
+        if not token:
+            print("❌ ERROR CRÍTICO: MP_ACCESS_TOKEN no encontrado en Config")
+            return jsonify({"error": "Configuración de Mercado Pago ausente"}), 500
+
+        sdk = mercadopago.SDK(token)
+        
+        user_id = int(get_jwt_identity())
+        evento = Evento.query.get_or_404(id)
+
+        # VALIDACIÓN 2: ¿Ya está pagado?
+        if evento.pagado:
+            return jsonify({
+                "error": "Esta invitación ya se encuentra activa y pagada.",
+                "already_paid": True
+            }), 400
+
+        if evento.usuario_id != user_id:
+            return jsonify({"error": "No tienes permiso para pagar este evento"}), 403
+
+        # 2. Construcción de la Data (Agregamos prints para ver qué mandamos)
+        preference_data = {
+            "items": [
+                {
+                    "title": f"Activación Invitación: {evento.nombre}",
+                    "quantity": 1,
+                    "unit_price": 30000.0,
+                    "currency_id": "ARS"
+                }
+            ],
+            "back_urls": {
+                # Usamos 127.0.0.1 y quitamos los "?" manuales
+                "success": f"http://127.0.0.1:5173/dashboard/evento/{id}",
+                "failure": f"http://127.0.0.1:5173/checkout/{id}",
+                "pending": f"http://127.0.0.1:5173/dashboard/evento/{id}"
+            },
+            #"auto_return": "approved",
+            "external_reference": str(id),
+            "notification_url": "https://situation-mouth-step.ngrok-free.dev/api/webhook-pago"
+        }
+
+        # 3. Llamada al SDK
+        print(f"🚀 Enviando preferencia a Mercado Pago para Evento ID: {id}...")
         preference_result = sdk.preference().create(preference_data)
+        
+        # OJO: El SDK puede no lanzar excepción pero devolver un error en el status
+        if preference_result["status"] >= 400:
+            print(f"❌ Mercado Pago rechazó la solicitud: {preference_result['response']}")
+            return jsonify({"error": "Error en la plataforma de pago", "detail": preference_result["response"]}), preference_result["status"]
+
         preference = preference_result["response"]
         
-        # Devolvemos el link (init_point) al frontend
+        print("✅ Preferencia creada con éxito!")
         return jsonify({
             "id": preference["id"],
             "init_point": preference["init_point"]
         }), 200
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # ESTO ES LO QUE BUSCAMOS:
+        print("\n" + "="*50)
+        print("💥 ERROR DETECTADO EN EL ENDPOINT DE PAGO 💥")
+        traceback.print_exc()  # Imprime el archivo y la línea exacta del error
+        print("="*50 + "\n")
+        
+        return jsonify({
+            "error": "Error interno del servidor",
+            "mensaje": str(e)
+        }), 500
     
 @evento_bp.route("/webhook-pago", methods=["POST"])
 def webhook_pago():
-    # Mercado Pago envía notificaciones por query params o body
-    # El 'topic' o 'type' nos dice qué pasó.
-     data = request.args.to_dict() # Para notificaciones simples
-    
-    # Si la notificación es de un pago
-     payment_id = request.args.get('data.id') or request.args.get('id')
-     topic = request.args.get('type') or request.args.get('topic')
+    try:
+        # 1. Obtener datos de la URL o del JSON (cubrimos todas las posibilidades)
+        data = request.get_json() if request.is_json else {}
+        
+        # Mercado Pago suele mandar 'data.id' en la URL o {'data': {'id': '...'}} en el body
+        payment_id = request.args.get('data.id') or data.get('data', {}).get('id')
+        topic = request.args.get('type') or data.get('type')
 
-     if topic == 'payment' and payment_id:
-        # 1. Consultamos el estado real del pago a Mercado Pago
-        sdk = mercadopago.SDK(current_app.config["MP_ACCESS_TOKEN"])
-        payment_info = sdk.payment().get(payment_id)
-        payment_data = payment_info["response"]
+        print(f"🔔 Webhook Recibido - Tipo: {topic}, ID: {payment_id}")
 
-        # 2. Sacamos el ID del evento que guardamos en 'external_reference'
-        evento_id = payment_data.get("external_reference")
-        status = payment_data.get("status")
+        if topic == 'payment' and payment_id:
+            # 2. Consultar a Mercado Pago para verificar que el pago es real y está aprobado
+            sdk = mercadopago.SDK(current_app.config["MP_ACCESS_TOKEN"])
+            payment_info = sdk.payment().get(payment_id)
+            
+            if payment_info["status"] == 200 or payment_info["status"] == 201:
+                payment_data = payment_info["response"]
+                evento_id = payment_data.get("external_reference")
+                status = payment_data.get("status")
+                
+                print(f"🧐 Detalle del pago {payment_id}: Evento {evento_id}, Status: {status}")
 
-        if evento_id and status == "approved":
-            # 3. Buscamos el evento y lo activamos
-            evento = Evento.query.get(int(evento_id))
-            if evento:
-                evento.pagado = True
-                evento.status_pago = "approved"
-                evento.payment_id = str(payment_id)
-                db.session.commit()
-                print(f"✅ Evento {evento_id} activado por pago exitoso.")
+                if evento_id and status == "approved":
+                    # 3. Actualizar la base de datos
+                    evento = Evento.query.get(int(evento_id))
+                    if evento:
+                        # Evitamos procesar si ya estaba pagado (opcional, pero buena práctica)
+                        if not evento.pagado:
+                            evento.pagado = True
+                            evento.status_pago = "approved"
+                            evento.payment_id = str(payment_id)
+                            db.session.commit()
+                            print(f"✅ ¡ÉXITO! Evento {evento_id} activado correctamente.")
+                        else:
+                            print(f"ℹ️ El evento {evento_id} ya figuraba como pagado.")
+                    else:
+                        print(f"❌ Error: No se encontró el evento {evento_id} en la DB.")
+            else:
+                print(f"❌ Error al consultar el pago en Mercado Pago: {payment_info['status']}")
 
-     # Siempre responder 200 o 201 a Mercado Pago para que no siga reintentando
-     return jsonify({"status": "received"}), 200
+    except Exception as e:
+        print(f"💥 ERROR CRÍTICO en Webhook: {str(e)}")
+        # Importante: aunque falle tu código, devolvemos 200 para que MP no nos sature a reintentos
+        return jsonify({"error": str(e)}), 200
+
+    # Siempre responder 200 a MP
+    return jsonify({"status": "received"}), 200
 

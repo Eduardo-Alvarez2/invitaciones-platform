@@ -16,3 +16,12 @@ class EventoSchema(Schema):
     template = fields.Str()
     cronograma = fields.Nested(CronogramaSchema, many=True, dump_only=True)
     imagenes = fields.Nested(ImagenEventoSchema, many=True, dump_only=True)
+
+    # 💳 CAMPOS DE PAGO (Agregados para que Marshmallow los incluya en el JSON)
+    pagado = fields.Bool()
+    status_pago = fields.Str()
+    payment_id = fields.Str()
+
+    # Relaciones
+    cronograma = fields.Nested(CronogramaSchema, many=True, dump_only=True)
+    imagenes = fields.Nested(ImagenEventoSchema, many=True, dump_only=True)

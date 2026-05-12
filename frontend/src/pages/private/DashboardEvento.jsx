@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { getEventoById } from "../../services/EventService"; 
 import axios from "axios"; 
 import { 
-  Users, Calendar, MapPin, Share2, 
+  Users, Calendar, Share2, 
   Edit3, CheckCircle, XCircle, MessageSquare,
-  ExternalLink, ArrowLeft
+  ArrowLeft, AlertCircle, CreditCard, MapPin, Settings
 } from "lucide-react";
 
 function DashboardEvento() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [evento, setEvento] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,17 +19,26 @@ function DashboardEvento() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // 1. Obtener datos del evento
-        const dataEvento = await getEventoById(id);
-        setEvento(dataEvento);
+        const dataRaw = await getEventoById(id);
+        
+        // Mantenemos tu normalización exacta
+        const esPagado = dataRaw.pagado === true || dataRaw.pagado === 1 || dataRaw.pagado === "1";
+        
+        const eventoProcesado = {
+          ...dataRaw,
+          pagado: esPagado
+        };
 
-        // 2. Obtener confirmaciones y estadísticas
-        const token = localStorage.getItem("token");
-        const resStats = await axios.get(
-          `http://localhost:5000/api/admin/eventos/${dataEvento.slug}/confirmaciones`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setStats(resStats.data);
+        setEvento(eventoProcesado);
+
+        if (esPagado) {
+          const token = localStorage.getItem("token");
+          const resStats = await axios.get(
+            `http://localhost:5000/api/admin/eventos/${eventoProcesado.slug}/confirmaciones`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setStats(resStats.data);
+        }
       } catch (error) {
         console.error("Error cargando dashboard:", error);
       } finally {
@@ -40,126 +50,198 @@ function DashboardEvento() {
   }, [id]);
 
   const copyLink = () => {
+    if (!evento?.pagado) return;
     const url = `${window.location.origin}/invitacion/${evento.slug}`;
     navigator.clipboard.writeText(url);
-    alert("¡Link copiado para enviar por WhatsApp!");
+    alert("¡Link de invitación copiado!");
   };
 
-  if (loading) return <div className="p-10 text-center">Cargando panel...</div>;
-  if (!evento) return <div className="p-10 text-center">No se encontró el evento.</div>;
+  if (loading) return <div className="p-10 text-center text-gray-500 font-medium">Cargando datos del evento...</div>;
+  if (!evento) return <div className="p-10 text-center text-red-500">No se pudo cargar el evento.</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      {/* Header */}
-      <div className="max-w-6xl mx-auto mb-8">
-        <Link to="/dashboard" className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-4 transition-colors">
-          <ArrowLeft size={18} /> Volver a mis eventos
-        </Link>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      
+      {/* 🖼️ HERO BANNER SECTION (Estética nueva) */}
+      <div className="h-[380px] w-full relative overflow-hidden">
+        {evento.imagen_portada ? (
+          <img 
+            src={`http://localhost:5000${evento.imagen_portada}`} 
+            className="w-full h-full object-cover transition-transform duration-1000 hover:scale-105"
+            alt="Portada"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800" />
+        )}
         
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{evento.nombre}</h1>
-            <p className="text-gray-500 flex items-center gap-2 mt-1">
-              <Calendar size={16} /> {new Date(evento.fecha).toLocaleDateString()}
-            </p>
+        {/* Overlay para legibilidad */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+        {/* Contenido sobre el Banner */}
+        <div className="absolute inset-0 flex flex-col justify-between p-6 md:p-12 max-w-6xl mx-auto w-full">
+          <div className="flex justify-between items-start">
+            <Link 
+              to="/dashboard" 
+              className="bg-white/10 backdrop-blur-md text-white px-4 py-2 rounded-xl hover:bg-white/20 transition-all flex items-center gap-2 text-sm font-bold border border-white/10"
+            >
+              <ArrowLeft size={18} /> Volver
+            </Link>
+            
+            <div className="flex gap-2">
+              <Link 
+                to={`/editor-detalle/${evento.id}`}
+                className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 text-sm font-bold shadow-xl"
+              >
+                <Edit3 size={18} /> Editar Invitación
+              </Link>
+            </div>
           </div>
-          
-          <div className="flex gap-3">
+
+          <div className="text-white">
+            <div className="flex items-center gap-3 mb-4">
+              {evento.pagado ? (
+                <span className="bg-green-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-green-900/20">
+                  <CheckCircle size={12} /> Invitación Activa
+                </span>
+              ) : (
+                <span className="bg-amber-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-amber-900/20">
+                  <AlertCircle size={12} /> Requiere Activación
+                </span>
+              )}
+            </div>
+            
+            <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tighter uppercase italic drop-shadow-2xl">
+              {evento.nombre}
+            </h1>
+
+            <div className="flex flex-wrap gap-6 text-white/90 font-bold text-sm md:text-base">
+              <div className="flex items-center gap-2 drop-shadow-md">
+                <Calendar className="text-indigo-300" size={20} />
+                {new Date(evento.fecha).toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long' })}
+              </div>
+              <div className="flex items-center gap-2 drop-shadow-md">
+                <MapPin className="text-indigo-300" size={20} />
+                {evento.lugar}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 📊 CONTENIDO DE GESTIÓN (Tu lógica original) */}
+      <div className="max-w-6xl mx-auto px-4 -mt-10 relative z-10">
+        
+        {/* Banner de Pago - Tu lógica de alerta */}
+        {!evento.pagado && (
+          <div className="mb-8 bg-white border-l-8 border-amber-500 p-6 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="bg-amber-100 p-4 rounded-full text-amber-600 animate-pulse">
+                <CreditCard size={32} />
+              </div>
+              <div>
+                <h3 className="font-black text-gray-900 uppercase text-sm tracking-widest">Activa tu Tarjeta</h3>
+                <p className="text-gray-500 text-sm font-medium">Para que tus invitados puedan confirmar asistencia, debés completar el pago.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => navigate(`/checkout/${evento.id}`)}
+              className="w-full md:w-auto bg-amber-600 text-white px-10 py-4 rounded-2xl hover:bg-amber-700 transition-all font-black text-sm shadow-xl shadow-amber-200 uppercase tracking-widest"
+            >
+              Pagar ahora
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+          {/* Card de Link (A la derecha en Desktop) */}
+          <div className="md:order-last bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
+            <div>
+              <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-4">Link Público</p>
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 break-all text-[11px] font-mono text-indigo-600 mb-6 font-bold">
+                {`${window.location.origin}/invitacion/${evento.slug}`}
+              </div>
+            </div>
             <button 
               onClick={copyLink}
-              className="flex items-center gap-2 bg-white border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium"
+              disabled={!evento.pagado}
+              className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-xs uppercase tracking-tighter transition-all ${
+                evento.pagado 
+                ? "bg-gray-900 text-white hover:bg-gray-800 shadow-xl shadow-gray-200" 
+                : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+              }`}
             >
-              <Share2 size={18} /> Copiar Link
+              <Share2 size={16} /> {evento.pagado ? "Copiar Invitación" : "Link Bloqueado"}
             </button>
-            <Link 
-              to={`/editor-detalle/${evento.id}`}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-all text-sm font-medium shadow-sm"
-            >
-              <Edit3 size={18} /> Editar Tarjeta
-            </Link>
+          </div>
+
+          {/* Stats Grid - Tu lógica original */}
+          <div className={`md:col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4 transition-all ${!evento.pagado ? "opacity-50 grayscale" : "opacity-100"}`}>
+            <StatCard icon={<Users className="text-blue-500" />} label="Invitados" value={stats?.total_personas || 0} />
+            <StatCard icon={<CheckCircle className="text-green-500" />} label="Confirmados" value={stats?.total_confirmados || 0} />
+            <StatCard icon={<XCircle className="text-red-400" />} label="No Asisten" value={stats?.total_no_asisten || 0} />
+            <StatCard icon={<MessageSquare className="text-purple-500" />} label="Mensajes" value={stats?.confirmaciones?.filter(c => c.mensaje).length || 0} />
           </div>
         </div>
-      </div>
 
-      {/* Stats Grid */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <StatCard 
-          icon={<Users className="text-blue-600" />} 
-          label="Total Personas" 
-          value={stats?.total_personas || 0} 
-        />
-        <StatCard 
-          icon={<CheckCircle className="text-green-600" />} 
-          label="Confirmados" 
-          value={stats?.total_confirmados || 0} 
-        />
-        <StatCard 
-          icon={<XCircle className="text-red-600" />} 
-          label="No Asisten" 
-          value={stats?.total_no_asisten || 0} 
-        />
-        <StatCard 
-          icon={<MessageSquare className="text-purple-600" />} 
-          label="Mensajes" 
-          value={stats?.confirmaciones?.filter(c => c.mensaje).length || 0} 
-        />
-      </div>
-
-      {/* Listado de Confirmaciones */}
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800">Lista de Invitados</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-semibold">
-              <tr>
-                <th className="px-6 py-4">Invitado</th>
-                <th className="px-6 py-4">Estado</th>
-                <th className="px-6 py-4">Acompañantes</th>
-                <th className="px-6 py-4">Mensaje</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {stats?.confirmaciones?.map((conf) => (
-                <tr key={conf.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{conf.nombre}</td>
-                  <td className="px-6 py-4">
-                    {conf.asiste ? (
-                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold uppercase">Confirmado</span>
-                    ) : (
-                      <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold uppercase">No Asiste</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">{conf.cantidad}</td>
-                  <td className="px-6 py-4 text-gray-500 italic text-sm">
-                    {conf.mensaje || "-"}
-                  </td>
-                </tr>
-              ))}
-              {(!stats?.confirmaciones || stats.confirmaciones.length === 0) && (
+        {/* Tabla de Confirmaciones - Tu lógica original */}
+        <div className={`bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden transition-all ${!evento.pagado ? "opacity-30 blur-[2px] pointer-events-none" : ""}`}>
+          <div className="p-8 border-b border-gray-50 flex justify-between items-center">
+            <h2 className="text-xl font-black text-gray-900 flex items-center gap-3 italic uppercase">
+              <Users className="text-indigo-600" /> Lista de Invitados
+            </h2>
+            {!evento.pagado && (
+              <span className="text-[10px] font-black text-amber-600 uppercase bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+                Bloqueado hasta el pago
+              </span>
+            )}
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50/50 text-gray-400 text-[10px] uppercase font-black tracking-widest">
                 <tr>
-                  <td colSpan="4" className="px-6 py-10 text-center text-gray-400">
-                    Aún no hay confirmaciones para este evento.
-                  </td>
+                  <th className="px-8 py-5">Nombre</th>
+                  <th className="px-8 py-5">Estado</th>
+                  <th className="px-8 py-5 text-center">Lugares</th>
+                  <th className="px-8 py-5">Mensaje</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {stats?.confirmaciones?.map((conf) => (
+                  <tr key={conf.id} className="hover:bg-indigo-50/30 transition-colors group">
+                    <td className="px-8 py-5 font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{conf.nombre}</td>
+                    <td className="px-8 py-5">
+                      {conf.asiste ? (
+                        <span className="text-green-600 bg-green-50 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-green-100">Asiste</span>
+                      ) : (
+                        <span className="text-red-600 bg-red-50 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-red-100">No asiste</span>
+                      )}
+                    </td>
+                    <td className="px-8 py-5 text-center font-black text-gray-700">{conf.cantidad}</td>
+                    <td className="px-8 py-5 text-gray-400 italic text-sm max-w-xs truncate" title={conf.mensaje}>{conf.mensaje || "-"}</td>
+                  </tr>
+                ))}
+                {(!stats?.confirmaciones || stats.confirmaciones.length === 0) && (
+                  <tr>
+                    <td colSpan="4" className="px-8 py-20 text-center text-gray-300 font-medium">Aún no hay respuestas de invitados.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// Componente pequeño para las tarjetas de stats
 function StatCard({ icon, label, value }) {
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-      <div className="p-3 bg-gray-50 rounded-lg">{icon}</div>
+    <div className="bg-white p-6 rounded-[24px] border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between h-full">
+      <div className="p-3 bg-gray-50 rounded-2xl w-fit mb-4">{icon}</div>
       <div>
-        <p className="text-sm text-gray-500 font-medium">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-3xl font-black text-gray-900">{value}</p>
       </div>
     </div>
   );

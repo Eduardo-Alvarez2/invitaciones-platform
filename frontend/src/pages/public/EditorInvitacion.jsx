@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Save, ChevronLeft, Sparkles, ArrowLeft, Type, ImageIcon } from 'lucide-react';
 
 import HeroSection from "../../components/public/hero/HeroSection";
+import AuthModal from "./AuthModal";
 
 const EditorInvitacion = () => {
 
@@ -21,7 +22,7 @@ const EditorInvitacion = () => {
   });
 
   const [pasoActual, setPasoActual] = useState(1);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false); // Sigue controlando la apertura del modal
 
   // 🔙 Volver
   const handleBackToPanel = () => {
@@ -66,12 +67,20 @@ const EditorInvitacion = () => {
 
     localStorage.setItem("draftEvento", JSON.stringify(draft));
 
+    // Si no hay token, disparamos el modal real en vez de navegar
     if (!token || token === "undefined" || token === "null") {
       setShowLoginModal(true);
       return;
     }
 
+    // Si ya está logueado, pasa directo al dashboard de detalles
     navigate("/editor-detalle");
+  };
+
+  // 🔥 Se ejecuta cuando el usuario se loguea con éxito desde el modal
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    navigate("/editor-detalle"); // Lo mandamos directo a continuar su flujo
   };
 
   return (
@@ -201,43 +210,16 @@ const EditorInvitacion = () => {
         />
       </main>
 
-      {/* MODAL LOGIN */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full text-center space-y-4">
-
-            <h2 className="text-lg font-bold">Guardá tu invitación</h2>
-
-            <p className="text-sm text-gray-500">
-              Para continuar necesitás iniciar sesión.
-            </p>
-
-            <p className="text-xs text-gray-400">
-              ⚠️ La imagen se deberá volver a cargarla luego
-            </p>
-
-            <div className="flex gap-2 pt-3">
-              <button
-                onClick={() => setShowLoginModal(false)}
-                className="flex-1 py-2 bg-gray-100 rounded-xl text-sm"
-              >
-                Seguir
-              </button>
-
-              <button
-                onClick={() => navigate("/login?redirect=/editor-detalle")}
-                className="flex-1 py-2 bg-black text-white rounded-xl text-sm"
-              >
-                Login
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      {/* 🔐 MODAL LOGIN REAL CON PASO DE SUCESO */}
+      <AuthModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)}
+        onLoginSuccess={handleLoginSuccess} // 👈 2. Le pasamos el callback al modal
+      />
 
     </div>
   );
 };
 
 export default EditorInvitacion;
+          

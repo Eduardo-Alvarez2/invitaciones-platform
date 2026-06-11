@@ -15,6 +15,9 @@ function EditorDetalle() {
 
   const [loading, setLoading] = useState(false);
   const [stepMsg, setStepMsg] = useState("");
+  
+  // 🎯 Estado para capturar los errores por campo específico
+  const [errors, setErrors] = useState({});
 
   const [imagenPortada, setImagenPortada] = useState(null);
   const [previewPortada, setPreviewPortada] = useState(null);
@@ -34,6 +37,7 @@ function EditorDetalle() {
       if (id) {
         try {
           setLoading(true);
+          setErrors({});
           const data = await getEventoById(id);
           const fechaFormateada = data.fecha ? data.fecha.substring(0, 16) : "";
 
@@ -46,7 +50,7 @@ function EditorDetalle() {
             template: data.template || "modern"
           });
 
-          if (data.imagen_portada) { // Corregido de foto_portada a imagen_portada
+          if (data.imagen_portada) { 
             setPreviewPortada(`${API_URL.replace('/api', '')}${data.imagen_portada}`);
           }
 
@@ -54,7 +58,8 @@ function EditorDetalle() {
           if (data.imagenes) setGaleriaExistente(data.imagenes);
 
         } catch (error) {
-          console.error("Error:", error);
+          console.error("Error al cargar datos:", error);
+          setErrors({ global: "No se pudieron cargar los datos de la invitación." });
         } finally {
           setLoading(false);
         }
@@ -63,7 +68,14 @@ function EditorDetalle() {
     cargarDatos();
   }, [id]);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  // ✏️ Limpia el error del campo apenas el usuario empieza a escribir de nuevo
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
+  };
 
   const handleCronogramaChange = (index, field, value) => {
     const newCron = [...cronograma];
@@ -72,28 +84,29 @@ function EditorDetalle() {
   };
   
   const addCronogramaItem = () => setCronograma([...cronograma, { hora: "", titulo: "", descripcion: "" }]);
-  // --- FUNCIONES QUE FALTABAN ---
+  
   const handlePortadaChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setImagenPortada(file);
       setPreviewPortada(URL.createObjectURL(file));
+      if (errors.portada) setErrors(prev => ({ ...prev, portada: "" }));
     }
   };
 
   const handleGaleriaChange = (e) => {
     const files = Array.from(e.target.files);
-    // Combinamos con lo que ya hay y limitamos a 3
     setGaleria(prev => [...prev, ...files].slice(0, 3 - galeriaExistente.length));
   };
 
   const removeImagenNueva = (index) => {
     setGaleria(prev => prev.filter((_, i) => i !== index));
   };
-  // ------------------------------
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setErrors({}); // Limpiar errores previos para evitar bloqueos visuales
     const token = localStorage.getItem("token");
 
     try {
@@ -105,7 +118,6 @@ function EditorDetalle() {
         const res = await axios.put(`${API_URL}/eventos/${id}`, form, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
-        // Ajuste 1: Asegurarnos de capturar el estado de pago del backend
         yaPagado = res.data?.pagado || false;
       } else {
         setStepMsg("Creando...");
@@ -113,23 +125,21 @@ function EditorDetalle() {
     
         console.log("Datos recibidos del backend:", response);
 
-        // Probamos todas las estructuras posibles:
         eventoId = response?.id || response?.data?.id || response?.evento?.id;
 
         if (!eventoId) {
-          // Si el log de arriba te muestra la data pero entra aquí, 
-          // fijate cómo se llama la clave del ID en la consola.
-         throw new Error("No se pudo obtener el ID del evento creado");
+          throw new Error("No se pudo obtener el ID del evento creado");
         }
         yaPagado = false;
-     }
+      }
 
-      // Ajuste 3: Solo intentar subir si eventoId existe y no es 'undefined'
+      // Subida de Portada
       if (eventoId && imagenPortada) {
         setStepMsg("Subiendo portada...");
         await uploadPortada(eventoId, imagenPortada);
       }
 
+      // Subida de Galería
       if (eventoId && galeria.length > 0) {
         setStepMsg("Subiendo galería...");
         for (let img of galeria) {
@@ -141,6 +151,7 @@ function EditorDetalle() {
         }
       }
 
+      // Sincronización del Cronograma
       if (eventoId) {
         setStepMsg("Sincronizando cronograma...");
         await axios.post(`${API_URL}/eventos/${eventoId}/cronograma/sync`, 
@@ -148,7 +159,7 @@ function EditorDetalle() {
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        // Redirección final
+        // Redirección final segura
         if (yaPagado) {
           navigate(`/dashboard/evento/${eventoId}`);
         } else {
@@ -158,13 +169,35 @@ function EditorDetalle() {
 
     } catch (error) {
       console.error("Error en el proceso de guardado:", error);
-      alert("Error al guardar: " + (error.response?.data?.message || "Verifica la consola"));
+  
+      if (error.response && error.response.status === 400) {
+      const backendData = error.response.data;
+    
+      // Si viene el mapeo directo de errores del Schema, lo seteamos directo
+      if (typeof backendData === "object" && !backendData.error && !backendData.message) {
+      setErrors(backendData); 
+      } else {
+      // Si viene un string general de Flask
+      setErrors({ global: backendData.error || backendData.message || "Error al validar los datos." });
+      }
+       } else {
+         setErrors({ global: error.response?.data?.error || "Error de conexión con el servidor. Inténtalo de nuevo." });
+       }
     } finally {
       setLoading(false);
     }
   };
 
-  const inputClass = "w-full p-3.5 bg-gray-50/50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all";
+  const inputClass = (fieldName) => `w-full p-3.5 bg-gray-50/50 border rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all ${
+    errors[fieldName] ? "border-red-400 bg-red-50/30 focus:ring-red-400" : "border-gray-200"
+  }`;
+
+  // Mini-componente interno para no repetir código de los labels de error
+  const ErrorLabel = ({ field }) => errors[field] ? (
+    <p className="text-xs text-red-500 font-semibold mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1 duration-150">
+      ⚠️ {errors[field]}
+    </p>
+  ) : null;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-20">
@@ -178,6 +211,13 @@ function EditorDetalle() {
           </h1>
         </div>
 
+        {/* Error Global (Por si explota algo ajeno a los campos) */}
+        {errors.global && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl text-sm font-medium">
+            💥 {errors.global}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* SECCIÓN 1: DATOS */}
           <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
@@ -186,17 +226,35 @@ function EditorDetalle() {
               <h2 className="text-xl font-bold text-gray-800">Información</h2>
             </div>
             <div className="space-y-4">
-              <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre del Evento" className={inputClass} />
-              <div className="grid grid-cols-2 gap-4">
-                <input type="datetime-local" name="fecha" value={form.fecha} onChange={handleChange} className={inputClass} />
-                <input name="lugar" value={form.lugar} onChange={handleChange} placeholder="Lugar" className={inputClass} />
+              <div>
+                <input name="nombre" value={form.nombre} onChange={handleChange} placeholder="Nombre del Evento" className={inputClass("nombre")} />
+                <ErrorLabel field="nombre" />
               </div>
-              <input name="direccion" value={form.direccion} onChange={handleChange} placeholder="Dirección Exacta" className={inputClass} />
-              <textarea name="mensaje_principal" value={form.mensaje_principal} onChange={handleChange} placeholder="Un mensaje cálido para tus invitados..." className={`${inputClass} h-32 resize-none`} />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <input type="datetime-local" name="fecha" value={form.fecha} onChange={handleChange} className={inputClass("fecha")} />
+                  <ErrorLabel field="fecha" />
+                </div>
+                <div>
+                  <input name="lugar" value={form.lugar} onChange={handleChange} placeholder="Lugar" className={inputClass("lugar")} />
+                  <ErrorLabel field="lugar" />
+                </div>
+              </div>
+              
+              <div>
+                <input name="direccion" value={form.direccion} onChange={handleChange} placeholder="Dirección Exacta" className={inputClass("direccion")} />
+                <ErrorLabel field="direccion" />
+              </div>
+
+              <div>
+                <textarea name="mensaje_principal" value={form.mensaje_principal} onChange={handleChange} placeholder="Un mensaje cálido para tus invitados..." className={`${inputClass("mensaje_principal")} h-32 resize-none`} />
+                <ErrorLabel field="mensaje_principal" />
+              </div>
             </div>
           </div>
 
-          {/* SECCIÓN 2: CRONOGRAMA (Moderna) */}
+          {/* SECCIÓN 2: CRONOGRAMA */}
           <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -230,10 +288,12 @@ function EditorDetalle() {
               <h2 className="text-xl font-bold text-gray-800">Multimedia</h2>
             </div>
             
-            {/* Portada con Dropzone simulado */}
+            {/* Portada */}
             <div className="mb-8">
               <p className="text-sm font-bold text-gray-700 mb-3">Portada Principal</p>
-              <div className="relative overflow-hidden rounded-3xl border-2 border-dashed border-gray-200 hover:border-indigo-400 transition-colors">
+              <div className={`relative overflow-hidden rounded-3xl border-2 border-dashed transition-colors ${
+                errors.portada ? "border-red-300 bg-red-50/10" : "border-gray-200 hover:border-indigo-400"
+              }`}>
                 {previewPortada ? (
                   <div className="relative h-56">
                     <img src={previewPortada} className="w-full h-full object-cover" alt="Preview" />
@@ -249,9 +309,10 @@ function EditorDetalle() {
                   </label>
                 )}
               </div>
+              <ErrorLabel field="portada" />
             </div>
 
-            {/* Galería Compacta */}
+            {/* Galería */}
             <div>
               <p className="text-sm font-bold text-gray-700 mb-3">Galería de Momentos (Máx 3)</p>
               <div className="grid grid-cols-4 gap-4">
@@ -276,8 +337,8 @@ function EditorDetalle() {
             </div>
           </div>
 
-          {/* BOTÓN FLOTANTE O FIJO */}
-          <button disabled={loading} className="w-full py-5 bg-black text-white rounded-2xl font-bold text-lg shadow-2xl hover:bg-gray-800 transition-all flex items-center justify-center gap-3">
+          {/* BOTÓN DE ACCIÓN */}
+          <button disabled={loading} className="w-full py-5 bg-black text-white rounded-2xl font-bold text-lg shadow-2xl hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3">
             {loading ? (
               <>
                 <Loader2 className="animate-spin" />

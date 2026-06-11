@@ -64,8 +64,8 @@ export const demoEventos = {
     template: "minimal",
 
       imagenes: [
-        "https://images.unsplash.com/photo-1519681393784-d120267933ba",
-        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
+        "/b1.jpg",
+        "/b2.jpg",
       ],
 
      cronograma: [

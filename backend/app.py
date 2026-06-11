@@ -5,6 +5,7 @@ from flask_cors import CORS
 
 from database import db
 from config import Config
+from flask_mailman import Mail
 
 import os
 import models
@@ -18,20 +19,21 @@ def create_app():
 
     # 🌐 CORS 
     CORS(app, 
-         resources={r"/api/*": {"origins": ["http://localhost:5173"]}},
+         resources={r"/api/*": {"origins": ["http://localhost:5173", "http://192.168.1.5:5173"]}},
          supports_credentials=True)
     
     basedir = os.path.abspath(os.path.dirname(__file__))
     app.config["UPLOAD_FOLDER"] = os.path.join(basedir, "uploads")
 
-    # 📁 SERVIR ARCHIVOS SUBIDOS
+    # SERVIR ARCHIVOS SUBIDOS
     @app.route("/uploads/<path:filename>")
     def uploaded_file(filename):
         return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
-    # 🔐 JWT + DB
+    # JWT + DB + correo
     jwt = JWTManager(app)
     db.init_app(app)
+    mail = Mail(app)
     Migrate(app, db)
 
     # IMPORT MODELOS e INYECCIÓN DE RUTAS (Blueprints)
@@ -43,6 +45,10 @@ def create_app():
         app.register_blueprint(evento_bp, url_prefix="/api")
         app.register_blueprint(auth_bp, url_prefix="/api")
         app.register_blueprint(confirmacion_bp, url_prefix="/api")
+    
+    
+        db.create_all()
+        print("¡Base de datos 'invitaciones.db' verificada y creada con éxito!")
 
 
     return app
@@ -51,4 +57,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,6 +1,5 @@
 import { Routes, Route } from "react-router-dom"
 
-import Login from "../pages/public/Login"
 import DashboardEvento from "../pages/private/DashboardEvento"
 import Home from "../pages/public/Home"
 import InvitacionPublica from "../pages/public/InvitacionPublica"
@@ -26,10 +25,6 @@ function AppRouter() {
           element={<InvitacionPublica />}
         />
 
-        <Route
-          path="/login"
-          element={<Login />}
-        />
          <Route
           path="/demo/:template"
           element={<DemoTemplate />}

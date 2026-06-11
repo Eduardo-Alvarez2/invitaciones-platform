@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getEventoById } from '../../services/EventService';
-import axios from 'axios';
+import { getEventoById,api } from '../../services/EventService';
+// 🔌 IMPORTANTE: Reemplazamos el axios común por tu instancia personalizada con interceptores
 import { Check, Rocket, ExternalLink, CreditCard, Loader2, Sparkles, ClipboardCheck } from 'lucide-react';
-
-const API_URL = "http://localhost:5000/api";
 
 function Checkout() {
     const { id } = useParams();
@@ -32,16 +30,16 @@ function Checkout() {
     const handlePagar = async () => {
         setLoadingPago(true);
         try {
-            const token = localStorage.getItem("token");
-            const res = await axios.post(`${API_URL}/eventos/${id}/pagar`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            //  ¡Usamos 'api.post'! Ya no hace falta armar los headers a mano ni el token, 
+            // el interceptor que arreglamos antes se encarga de inyectarlo y de hacer el refresh si caducó.
+            const res = await api.post(`/eventos/${id}/pagar`, {});
+            const datosMP = res.data || res; // Por si el backend no envía un objeto con 'data' (depende de cómo lo tengas configurado)
 
-            if (res.data.init_point) {
-                window.location.href = res.data.init_point;
-            } else {
-                throw new Error("No se recibió la URL de pago");
-            }
+           if (datosMP.init_point) {
+               window.location.href = datosMP.init_point;
+           } else {
+               throw new Error("No se recibió la URL de pago");
+           }
         } catch (error) {
             console.error("Error en Mercado Pago:", error);
             alert("Hubo un problema al conectar con Mercado Pago. Intentá nuevamente.");
@@ -92,7 +90,6 @@ function Checkout() {
                             <span className="text-sm font-medium">Cronograma interactivo</span>
                         </div>
 
-                        {/* Cambio clave: Confirmación RSVP nativa */}
                         <div className="flex items-center gap-3 text-gray-700">
                             <div className="bg-green-100 p-1 rounded-full"><ClipboardCheck size={14} className="text-green-600" /></div>
                             <span className="text-sm font-medium">Gestión de invitados (RSVP Web)</span>
@@ -100,8 +97,9 @@ function Checkout() {
                     </div>
 
                     <div className="pt-4 border-t border-gray-100">
+                        {/* 👁️ BOTÓN DE PREVISUALIZACIÓN */}
                         <button 
-                            onClick={() => window.open(`/preview/${evento.slug}`, '_blank')}
+                            onClick={() => window.open(`/invitacion/${evento.slug}`, '_blank')} // 👈 REVISÁ ACÁ: Si tu ruta en App.jsx para ver la tarjeta pública es /v/:slug, cambialo por `/v/${evento.slug}`
                             className="w-full flex items-center justify-center gap-2 text-indigo-600 font-bold py-3 hover:bg-indigo-50 rounded-xl transition-all"
                         >
                             <ExternalLink size={18} /> Previsualizar Invitación

@@ -170,6 +170,12 @@ export const getCronograma = async (eventoId) => {
   return res.data;
 };
 
+// 🔹 Sincronizar cronograma completo (Agregá esta que te faltaba)
+export const syncCronograma = async (eventoId, items) => {
+  const res = await api.post(`/eventos/${eventoId}/cronograma/sync`, { items });
+  return res.data;
+};
+
 // ==========================================
 // 🔐 FUNCIONES DEL SERVICIO (AUTENTICACIÓN)
 // ==========================================
@@ -195,5 +201,19 @@ export const verificarCuenta = async (email, codigo) => {
 // Reenviar Código de activación
 export const reenviarCodigoAuth = async (email) => {
   const res = await api.post("/resend-code", { email });
+  return res.data;
+};
+
+// =========================
+// 🎵 MÚSICA DE FONDO (Agregá esta sección nueva)
+// =========================
+
+// 🔹 Subir pista de audio
+export const uploadMusica = async (eventoId, file) => {
+  const formData = new FormData();
+  formData.append("cancion", file); // Tu backend Flask lo recibe como 'cancion'
+
+  // Al usar 'api', el interceptor ya le clava el token solito
+  const res = await api.post(`/eventos/${eventoId}/musica`, formData);
   return res.data;
 };

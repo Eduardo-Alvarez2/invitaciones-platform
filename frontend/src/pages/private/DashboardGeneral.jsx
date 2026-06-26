@@ -56,34 +56,40 @@ function DashboardGeneral() {
   if (loading) return <div className="p-10 text-center text-gray-500 font-medium">Cargando tus eventos...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 md:p-10">
       <div className="max-w-6xl mx-auto">
         
-        {/* Header */}
-        <div className="flex justify-between items-center mb-10">
+        {/* 🛠️ HEADER RESPONSIVO */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
           <div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">Mis Eventos</h1>
-            <p className="text-gray-500 mt-1 font-medium">Gestiona y monitorea tus invitaciones</p>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Mis Eventos</h1>
+            <p className="text-gray-500 mt-1 text-sm font-medium">Gestiona y monitorea tus invitaciones</p>
           </div>
           <Link 
             to="/editor" 
-            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-bold"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 text-xs font-black uppercase tracking-wider shrink-0"
           >
-            <Plus size={20} /> Crear Nuevo
+            <Plus size={16} /> Crear Nuevo
           </Link>
         </div>
 
+        {/* 🛠️ CONTENEDOR VACÍO RESPONSIVO */}
         {eventos.length === 0 ? (
-          <div className="bg-white rounded-3xl p-16 text-center border-2 border-dashed border-gray-200">
-            <Layout className="text-gray-300 mx-auto mb-4" size={48} />
-            <h2 className="text-xl font-bold text-gray-800">No hay nada por aquí</h2>
-            <p className="text-gray-500 mb-8">Comienza creando tu primera invitación digital ahora mismo.</p>
-            <Link to="/editor" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all">
+          <div className="bg-white rounded-3xl p-8 sm:p-16 text-center border-2 border-dashed border-gray-200 flex flex-col items-center">
+            <Layout className="text-gray-300 mb-4 shrink-0" size={44} />
+            <h2 className="text-lg sm:text-xl font-black uppercase tracking-tight text-gray-800">No hay nada por aquí</h2>
+            <p className="text-gray-500 text-sm mt-1 mb-6 max-w-sm">
+              Comienza creando tu primera invitación digital ahora mismo.
+            </p>
+            <Link 
+              to="/editor" 
+              className="w-full sm:w-auto inline-flex items-center justify-center bg-gray-900 text-white px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-all"
+            >
               Crear mi primer evento
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {eventos.map((evento) => {
               const estado = getEstadoEvento(evento);
               return (
@@ -101,7 +107,7 @@ function DashboardGeneral() {
                       <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 opacity-90" />
                     )}
                     
-                    {/* Badge de estado flotante sobre la imagen */}
+                    {/* Badge de estado flotante */}
                     <div className="absolute top-4 right-4">
                       <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase flex items-center gap-1.5 backdrop-blur-md ${estado.class}`}>
                         {estado.icon} {estado.label}
@@ -129,25 +135,25 @@ function DashboardGeneral() {
                     <div className="flex gap-2">
                       <Link 
                         to={`/dashboard/evento/${evento.id}`}
-                        className="flex-1 text-center bg-gray-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg shadow-gray-100"
+                        className="flex-1 text-center bg-gray-900 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-colors shadow-lg shadow-gray-100"
                       >
                         Gestionar
                       </Link>
                       <Link 
                         to={`/editor-detalle/${evento.id}`}
-                        className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+                        className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center"
                         title="Editar diseño"
                       >
-                        <Settings size={20} />
+                        <Settings size={18} />
                       </Link>
                     </div>
                   </div>
 
-                  {/* Botón de Pago (solo si está pendiente y no vencido) */}
+                  {/* Botón de Pago */}
                   {!evento.pagado && new Date(evento.fecha) >= new Date().setHours(0,0,0,0) && (
                     <Link 
                       to={`/checkout/${evento.id}`}
-                      className="bg-amber-500 hover:bg-amber-600 text-white py-3.5 px-6 text-[11px] font-black tracking-widest flex items-center justify-center gap-2 transition-colors uppercase"
+                      className="bg-amber-500 hover:bg-amber-600 text-white py-3.5 px-6 text-[10px] font-black tracking-widest flex items-center justify-center gap-2 transition-colors uppercase"
                     >
                       <CreditCard size={14} /> Activar Invitación
                     </Link>

@@ -8,8 +8,12 @@ from marshmallow import ValidationError
 from schema.evento_schema import EventoSchema
 from utils.slug import generar_slug_unico
 from flask_jwt_extended import jwt_required, get_jwt_identity
-import mercadopago
+from services.storage_service import StorageService
+from services.mp_service import MercadoPagoService
 import traceback
+import os
+import uuid
+
 
 evento_bp = Blueprint("evento_bp", __name__)
 
@@ -229,14 +233,10 @@ def obtener_evento_por_slug(slug):
     print(f"✅ DEBUG: Respuesta final armada para ID {evento.id}")
     return jsonify(evento_data), 200
 
+
 @evento_bp.route("/eventos/<int:id>/portada", methods=["POST"])
 @jwt_required()
 def subir_portada(id):
-    import os
-    import uuid
-    from werkzeug.utils import secure_filename
-    from flask import current_app # <--- Importante para leer el UPLOAD_FOLDER
-
     user_id = int(get_jwt_identity())
     evento = Evento.query.get_or_404(id)
 
@@ -246,55 +246,28 @@ def subir_portada(id):
     if "file" not in request.files:
         return jsonify({"error": "No se envió archivo"}), 400
 
-    file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "Nombre de archivo vacío"}), 400
+    try:
+        # Borramos la portada física anterior usando el servicio
+        if evento.imagen_portada:
+            StorageService.eliminar_archivo_fisico(evento.imagen_portada)
 
-    # 1. Validar extensión
-    extensiones_permitidas = {"jpg", "jpeg", "png"}
-    extension = file.filename.rsplit(".", 1)[1].lower()
-    if extension not in extensiones_permitidas:
-        return jsonify({"error": "Formato no permitido"}), 400
-
-    # 2. Definir rutas usando la configuración centralizada de app.py
-    nombre_archivo = f"{uuid.uuid4()}.{extension}"
-    
-    # Ruta absoluta para guardar el archivo físicamente
-    ruta_base = current_app.config["UPLOAD_FOLDER"] 
-    carpeta_eventos = os.path.join(ruta_base, "eventos")
-    os.makedirs(carpeta_eventos, exist_ok=True)
-    
-    ruta_fisica = os.path.join(carpeta_eventos, secure_filename(nombre_archivo))
-
-    # 3. Borrar portada anterior si existe
-    if evento.imagen_portada:
-        # Quitamos la barra inicial para que os.path lo reconozca
-        path_anterior = os.path.join(ruta_base, evento.imagen_portada.replace("/uploads/", ""))
-        if os.path.exists(path_anterior):
-            try:
-                os.remove(path_anterior)
-            except:
-                pass
-
-    # 4. Guardar archivo y actualizar Base de Datos
-    file.save(ruta_fisica)
-
-    # Guardamos el formato "/uploads/eventos/nombre.jpg" para que React lo pida fácil
-    evento.imagen_portada = f"/uploads/eventos/{nombre_archivo}"
-
-    db.session.commit()
-
-    return jsonify({
-        "mensaje": "Portada subida",
-        "url": evento.imagen_portada
-    }), 201
+        # Guardamos la nueva
+        url_relativa = StorageService.guardar_archivo(
+            file=request.files["file"],
+            carpeta_destino="eventos",
+            prefijo_nombre=str(uuid.uuid4()),
+            tipo="imagen"
+        )
+        
+        evento.imagen_portada = url_relativa
+        db.session.commit()
+        return jsonify({"mensaje": "Portada subida", "url": evento.imagen_portada}), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 @evento_bp.route("/eventos/<int:id>/portada", methods=["DELETE"])
 @jwt_required()
 def eliminar_portada(id):
-    import os
-    from flask import current_app
-    
     user_id = int(get_jwt_identity())
     evento = Evento.query.get_or_404(id)
 
@@ -302,12 +275,8 @@ def eliminar_portada(id):
         return jsonify({"error": "No tienes permiso"}), 403
 
     if evento.imagen_portada:
-        # Construimos la ruta real: quitamos '/uploads/' y unimos con el UPLOAD_FOLDER
-        nombre_real = evento.imagen_portada.replace("/uploads/", "")
-        ruta_real = os.path.join(current_app.config["UPLOAD_FOLDER"], nombre_real)
-        
-        if os.path.exists(ruta_real):
-            os.remove(ruta_real)
+        # Usamos el servicio centralizado para borrar el archivo físico
+        StorageService.eliminar_archivo_fisico(evento.imagen_portada)
 
     evento.imagen_portada = None
     db.session.commit()
@@ -519,75 +488,32 @@ def listar_cronograma(id):
 @evento_bp.route("/eventos/<int:id>/pagar", methods=["POST"])
 @jwt_required()
 def crear_preferencia_pago(id):
-    try:
-        # 1. Verificación inicial de Config
-        token = current_app.config.get("MP_ACCESS_TOKEN")
-        if not token:
-            print("❌ ERROR CRÍTICO: MP_ACCESS_TOKEN no encontrado en Config")
-            return jsonify({"error": "Configuración de Mercado Pago ausente"}), 500
+    user_id = int(get_jwt_identity())
+    evento = Evento.query.get_or_404(id)
 
-        sdk = mercadopago.SDK(token)
-        
-        user_id = int(get_jwt_identity())
-        evento = Evento.query.get_or_404(id)
-
-        # VALIDACIÓN 2: ¿Ya está pagado?
-        if evento.pagado:
-            return jsonify({
-                "error": "Esta invitación ya se encuentra activa y pagada.",
-                "already_paid": True
-            }), 400
-
-        if evento.usuario_id != user_id:
-            return jsonify({"error": "No tienes permiso para pagar este evento"}), 403
-
-        # 2. Construcción de la Data (Agregamos prints para ver qué mandamos)
-        preference_data = {
-            "items": [
-                {
-                    "title": f"Activación Invitación: {evento.nombre}",
-                    "quantity": 1,
-                    "unit_price": 30000.0,
-                    "currency_id": "ARS"
-                }
-            ],
-            "back_urls": {
-                # Usamos 127.0.0.1 y quitamos los "?" manuales
-                "success": f"http://127.0.0.1:5173/dashboard/evento/{id}",
-                "failure": f"http://127.0.0.1:5173/checkout/{id}",
-                "pending": f"http://127.0.0.1:5173/dashboard/evento/{id}"
-            },
-            #"auto_return": "approved",
-            "external_reference": str(id),
-            "notification_url": "https://situation-mouth-step.ngrok-free.dev/api/webhook-pago"
-        }
-
-        # 3. Llamada al SDK
-        print(f"🚀 Enviando preferencia a Mercado Pago para Evento ID: {id}...")
-        preference_result = sdk.preference().create(preference_data)
-        
-        # OJO: El SDK puede no lanzar excepción pero devolver un error en el status
-        if preference_result["status"] >= 400:
-            print(f"❌ Mercado Pago rechazó la solicitud: {preference_result['response']}")
-            return jsonify({"error": "Error en la plataforma de pago", "detail": preference_result["response"]}), preference_result["status"]
-
-        preference = preference_result["response"]
-        
-        print("✅ Preferencia creada con éxito!")
+    # 1. Validaciones que siguen quedando en la ruta (Control HTTP)
+    if evento.pagado:
         return jsonify({
-            "id": preference["id"],
+            "error": "Esta invitación ya se encuentra activa y pagada.", 
+            "already_paid": True
+        }), 400
+
+    if evento.usuario_id != user_id:
+        return jsonify({"error": "No tienes permiso para pagar este evento"}), 403
+
+    try:
+        
+        preference = MercadoPagoService.crear_preferencia(evento)
+        
+        return jsonify({
+            "id": preference["id"], 
             "init_point": preference["init_point"]
         }), 200
-
-    except Exception as e:
-        # ESTO ES LO QUE BUSCAMOS:
-        print("\n" + "="*50)
-        print("💥 ERROR DETECTADO EN EL ENDPOINT DE PAGO 💥")
-        traceback.print_exc()  # Imprime el archivo y la línea exacta del error
-        print("="*50 + "\n")
         
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({
-            "error": "Error interno del servidor",
+            "error": "Error al procesar el pago", 
             "mensaje": str(e)
         }), 500
     
@@ -640,4 +566,42 @@ def webhook_pago():
 
     # Siempre responder 200 a MP
     return jsonify({"status": "received"}), 200
+
+# Extensiones de audio que vamos a permitir
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'mpeg', 'm4a'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
+
+# SUBIR MÚSICA (Refactorizado)
+@evento_bp.route('/eventos/<int:evento_id>/musica', methods=['POST'])
+@jwt_required()
+def subir_musica_evento(evento_id):
+    user_id = int(get_jwt_identity())
+    evento = Evento.query.get_or_404(evento_id)
+    
+    if evento.usuario_id != user_id:
+        return jsonify({"error": "No tienes permiso para modificar este evento"}), 403
+    
+    if 'cancion' not in request.files:
+        return jsonify({"error": "No se encontró ningún archivo de audio"}), 400
+        
+    try:
+        # Usamos el servicio para validar y guardar físicamente el audio
+        url_relativa = StorageService.guardar_archivo(
+            file=request.files['cancion'],
+            carpeta_destino="audio",
+            prefijo_nombre=f"audio_evento_{evento.id}",
+            tipo="audio"
+        )
+        
+        evento.cancion_url = url_relativa
+        db.session.commit()
+        
+        return jsonify({"message": "¡Música cargada con éxito!", "cancion_url": evento.cancion_url}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
 

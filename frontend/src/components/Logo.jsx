@@ -2,7 +2,11 @@ import React from 'react';
 
 function Logo({ light = false }) {
   return (
-    <div className="flex flex-col items-center md:items-start select-none">
+    /* 🛡️ Agregamos translate="no" y la clase "notranslate" al contenedor principal */
+    <div 
+      translate="no" 
+      className="notranslate flex flex-col items-center md:items-start select-none"
+    >
       {/* Contenedor del Nombre */}
       <div 
         className="relative font-serif text-2xl md:text-3xl tracking-[0.1em] font-bold uppercase bg-gradient-to-r from-[#DFBA73] via-[#F5E1A4] to-[#C29B53] bg-clip-text text-transparent"

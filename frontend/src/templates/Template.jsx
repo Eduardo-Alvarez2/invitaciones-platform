@@ -5,6 +5,7 @@ import MapSection from "../components/public/MapSection"
 import GallerySection from "../components/public/gallery/GallerySection"
 import RSVPSection from "../components/public/RSVPSection"
 import CronogramaSection from "../components/public/cronograma/CronogramaSection"
+import MusicPlayer from "../components/public/countdown/MusicPlayer"
 
 function Template({ evento }) {
 
@@ -12,7 +13,7 @@ function Template({ evento }) {
   const imagenes = evento.imagenes 
 
   return (
-    <div>
+    <div className="relative w-full">
 
       <HeroSection
         titulo={evento.nombre}
@@ -51,6 +52,7 @@ function Template({ evento }) {
         slug={evento.slug}
         variant={variant}
       />
+      <MusicPlayer urlCancion={evento.cancion} />
 
     </div>
   )

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-// Imported from your centralized service instance
 import { 
   loginUsuario, 
   registrarUsuario, 
@@ -12,11 +11,9 @@ import {
   Mail, Lock, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff, X, User, KeyRound 
 } from "lucide-react";
 
-// Recibimos la prop 'onLoginSuccess' para manejar el flujo del editor
 function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const navigate = useNavigate();
   
-  // 🔄 Estado de strings: "login", "register" o "verify"
   const [vista, setVista] = useState("login"); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +21,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   
-  // Estados específicos para la verificación por mail
   const [emailParaVerificar, setEmailParaVerificar] = useState("");
   const [codigoVerificacion, setCodigoVerificacion] = useState("");
 
@@ -45,16 +41,21 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // 📧 Manejador para reenviar el código de activación
+  // Limpiador para cuando el usuario cierra manualmente el modal
+  const handleCloseModal = () => {
+    setError("");
+    setSuccessMsg("");
+    setForm({ nombre: "", email: "", password: "", confirmPassword: "" });
+    onClose();
+  };
+
   const handleResendCode = async () => {
     setLoading(true);
     setError("");
     setSuccessMsg("");
 
     try {
-      // Usa el servicio centralizado en vez de axios.post directo
       const data = await reenviarCodigoAuth(emailParaVerificar);
-      
       setSuccessMsg(data.mensaje || "¡Código reenviado con éxito!");
     } catch (err) {
       setError(err.response?.data?.error || "Error al intentar reenviar el código.");
@@ -63,7 +64,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // 📧 Manejador para el envío del código de 6 dígitos
   const handleVerifySubmit = async (e) => {
     e.preventDefault();
     if (codigoVerificacion.length !== 6) {
@@ -76,12 +76,10 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     setSuccessMsg("");
 
     try {
-      // Usa el servicio centralizado en vez de axios.post directo
       await verificarCuenta(emailParaVerificar, codigoVerificacion);
-
       setSuccessMsg("¡Cuenta activada con éxito! Ya puedes iniciar sesión.");
       setCodigoVerificacion("");
-      setVista("login"); // Mandamos al usuario al login
+      setVista("login"); 
     } catch (err) {
       setError(err.response?.data?.error || "El código es incorrecto o expiró.");
     } finally {
@@ -89,7 +87,7 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // 🔐 Manejador principal para Login y Registro
+  // 🔐 Manejador principal para Login y Registro (Corregido)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (vista === "register" && !passwordsMatch) {
@@ -102,33 +100,41 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     
     try {
       if (vista === "register") {
-        // Usa el servicio centralizado en vez de axios.post directo
         await registrarUsuario(form.nombre, form.email, form.password);
-        
         setEmailParaVerificar(form.email);
         setSuccessMsg("¡Registro casi listo! Te enviamos un código de 6 dígitos a tu mail.");
         setVista("verify"); 
       } else {
-        // Usa el servicio centralizado en vez de axios.post directo
         const data = await loginUsuario(form.email, form.password);
         
-        localStorage.setItem("token", data.access_token);
-        localStorage.setItem("refresh_token", data.refresh_token);
+        // 🛡️ Doble chequeo: Nos aseguramos de que el backend realmente devolvió los tokens
+        if (data && data.access_token) {
+          localStorage.setItem("token", data.access_token);
+          localStorage.setItem("refresh_token", data.refresh_token);
 
-        if (onLoginSuccess) {
-          onLoginSuccess();
+          if (onLoginSuccess) {
+            onLoginSuccess();
+          } else {
+            onClose();
+            window.location.reload();
+          }
         } else {
-          onClose();
-          window.location.reload();
+          throw new Error("Respuesta inválida del servidor");
         }
       }
     } catch (err) {
-      // 🎯 SOLUCIÓN AL LIMBO: Si el backend responde con 403 (No verificado)
+      // 🚨 ¡LA CLAVE DE LA SOLUCIÓN! 🚨
+      // Si el login falla por cualquier motivo, limpiamos inmediatamente el localStorage
+      // para evitar que queden cadenas como "undefined" o "null" simulando una sesión activa.
+      if (vista === "login") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("refresh_token");
+      }
+
       if (err.response?.status === 403) {
-        setEmailParaVerificar(form.email); // Capturamos el mail que intentó loguear
-        setError(err.response.data.error); // Mostramos el mensaje original del backend
+        setEmailParaVerificar(form.email); 
+        setError(err.response.data.error); 
         
-        // Esperamos 2 segundos para que lea el error y lo mandamos a verificar automáticamente
         setTimeout(() => {
           setVista("verify");
           setSuccessMsg("Ingresa el código para activar tu cuenta. Si no te llegó, usa el botón de abajo.");
@@ -136,7 +142,7 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         }, 2000);
         
       } else {
-        setError(err.response?.data?.error || "Error de conexión");
+        setError(err.response?.data?.error || "Credenciales incorrectas o error de conexión");
       }
     } finally {
       setLoading(false);
@@ -146,11 +152,11 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal}></div>
       
       {/* Modal */}
       <div className="relative bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl animate-in fade-in zoom-in duration-300">
-        <button onClick={onClose} className="absolute right-6 top-6 text-slate-400 hover:text-slate-600">
+        <button onClick={handleCloseModal} className="absolute right-6 top-6 text-slate-400 hover:text-slate-600">
           <X size={20} />
         </button>
 
@@ -160,14 +166,12 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           {vista === "verify" && "Verifica tu cuenta"}
         </h2>
         
-        {/* Subtítulo dinámico para cuando le piden el código */}
         {vista === "verify" && (
           <p className="text-xs text-slate-500 mb-6 leading-relaxed">
             Ingresá los 6 números que enviamos a tu casilla <strong>{emailParaVerificar}</strong> para activar el alta.
           </p>
         )}
 
-        {/* Mensajes de Alerta */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-xl flex items-center gap-2 text-xs border border-red-100">
             <AlertCircle size={16} /> <span>{error}</span>
@@ -180,11 +184,7 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </div>
         )}
 
-        {/* RENDERIZADO CONDICIONAL DE FORMULARIOS */}
         {vista !== "verify" ? (
-          // ==========================================
-          // FORMULARIO: LOGIN / REGISTRO
-          // ==========================================
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             {vista === "register" && (
               <div>
@@ -233,9 +233,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             </button>
           </form>
         ) : (
-          // ==========================================
-          // FORMULARIO: VERIFICACIÓN POR MAIL (CÓDIGO)
-          // ==========================================
           <form onSubmit={handleVerifySubmit} className="space-y-5 mt-4">
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Código de activación</label>
@@ -257,7 +254,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               {loading ? <Loader2 className="animate-spin" size={18} /> : "Activar Cuenta"}
             </button>
 
-            {/* 🔄 BOTÓN DE REENVÍO */}
             <div className="text-center mt-3">
               <button
                 type="button"
@@ -271,7 +267,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </form>
         )}
 
-        {/* Enlaces inferiores de alternancia de vistas */}
         <div className="mt-8 text-center">
           {vista === "verify" ? (
             <button onClick={() => { setVista("login"); setError(""); setSuccessMsg(""); }} className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:underline">

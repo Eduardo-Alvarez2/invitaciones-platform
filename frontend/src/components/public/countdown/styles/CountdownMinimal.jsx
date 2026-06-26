@@ -19,7 +19,7 @@ function CountdownMinimal({ timeLeft }) {
       </div>
 
       {/* Contenedor del contador: Sin bordes, sin sombras, solo números elegantes */}
-      <div className="flex items-center gap-8 md:gap-16">
+      <div className="flex items-center gap-4 sm:gap-6 md:gap-8 lg:gap-12">
         <TimeBox value={timeLeft.dias} label="días" />
         <TimeBox value={timeLeft.horas} label="hs" />
         <TimeBox value={timeLeft.minutos} label="min" />

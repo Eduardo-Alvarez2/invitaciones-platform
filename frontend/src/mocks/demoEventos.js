@@ -15,6 +15,7 @@ export const demoEventos = {
     direccion: "Av. Siempre Viva 123",
     mensaje_principal: "Te invitamos a celebrar nuestra boda 💍",
     template: "classic",
+    cancion:"/edsheeran.mp3",
        
       imagenes: [
            "https://images.unsplash.com/photo-1519741497674-611481863552",
@@ -38,6 +39,7 @@ export const demoEventos = {
     mensaje_principal: "Celebramos mis 15 🎉",
     template: "modern",
     imagen_portada: "/portada_15.jpg",
+    cancion:"/KarolG.mp3",
 
      imagenes: [
             "/15_3.jpg",
@@ -62,6 +64,7 @@ export const demoEventos = {
     direccion: "Centro",
     mensaje_principal: "Te invitamos a acompañarnos en este momento especial ✨",
     template: "minimal",
+    cancion:"/bautismo.mp3",
 
       imagenes: [
         "/b1.jpg",

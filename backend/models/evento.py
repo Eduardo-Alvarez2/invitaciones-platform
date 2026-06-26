@@ -14,6 +14,7 @@ class Evento(db.Model):
     mensaje_principal = Column(Text, nullable=True)
     imagen_portada = Column(String(250), nullable=True)
     slug = Column(String(150), unique=True, nullable=False)
+    cancion = Column(String(250), nullable=True)
     activo = Column(Boolean, default=True)
     template = Column(String(50), nullable=False, default="classic")
     pagado = db.Column(db.Boolean, default=False)

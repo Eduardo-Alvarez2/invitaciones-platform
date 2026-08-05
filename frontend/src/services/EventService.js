@@ -204,6 +204,30 @@ export const reenviarCodigoAuth = async (email) => {
   return res.data;
 };
 
+// Solicitar código de recuperación
+export const solicitarRecuperacion = async (email) => {
+  try {
+    const response = await api.post('/forgot-password', { email });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.error || 'Error al solicitar el código de recuperación.';
+  }
+};
+
+// Restablecer la contraseña con el código
+export const restablecerPassword = async (email, codigo, password) => {
+  try {
+    const response = await api.post('/reset-password', { 
+      email, 
+      codigo, 
+      password 
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.error || 'Error al restablecer la contraseña.';
+  }
+};
+
 // =========================
 // 🎵 MÚSICA DE FONDO (Agregá esta sección nueva)
 // =========================

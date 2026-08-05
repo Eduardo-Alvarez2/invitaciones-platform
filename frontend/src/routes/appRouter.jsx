@@ -11,6 +11,7 @@ import EditorInvitacion from "../pages/public/EditorInvitacion"
 import EditorDetalle from "../pages/private/EditorDetalles"
 import DashboardGeneral from "../pages/private/DashboardGeneral"
 import Checkout from "../pages/private/Checkout"
+import Terminos from "../pages/public/terminos"
 
 function AppRouter() {
   return (
@@ -32,6 +33,11 @@ function AppRouter() {
         <Route
           path="/editor"
           element={<EditorInvitacion />}
+         />
+
+         <Route
+          path="/terminos"
+          element={<Terminos />}
          />
           <Route
           path="/checkout/:id"

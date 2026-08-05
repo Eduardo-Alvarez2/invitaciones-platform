@@ -5,31 +5,31 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
     # Seguridad
-    SECRET_KEY = os.environ.get("SECRET_KEY") or "super-secret-key"
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or "super-jwt-key"
+    SECRET_KEY = os.environ.get("SECRET_KEY") or "clave-secreta-temporal-local"
+    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or "clave-jwt-temporal-local"
 
-    # Duración de los Tokens JWT (Agregados acá adentro)
+    # Duración de los Tokens JWT
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)    
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
-    # CONFIGURACIÓN DE CORREO (Gmail)
-    MAIL_SERVER = 'smtp.gmail.com'
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USERNAME = os.environ.get("MAIL_USERNAME") or "alvarez.edu26@gmail.com"
-    # Acá va el token de 16 letras que te da Google para aplicaciones de terceros, no tu contraseña normal
-    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD") or "fdrw uusb ihnh ceem"
-    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_USERNAME") or "alvarez.edu26@gmail.com"
+    # CONFIGURACIÓN DE CORREO (Gmail / Mail corporativo)
+    MAIL_SERVER = os.environ.get("MAIL_SERVER") or 'smtp.gmail.com'
+    MAIL_PORT = int(os.environ.get("MAIL_PORT") or 587)
+    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS") or True
+    MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_USERNAME")
 
-    #  Mercado Pago 
-    MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN") or "APP_USR-4131245617882232-042909-c3543a9be4908deead55425a265327e4-3367644238"
-    MP_PUBLIC_KEY = os.environ.get("MP_PUBLIC_KEY") or "APP_USR-4b579fea-287d-4cfb-8372-e8a31a08b132"
+    # Mercado Pago
+    MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
+    MP_PUBLIC_KEY = os.environ.get("MP_PUBLIC_KEY")
+    
     # Base de datos
-    SQLALCHEMY_DATABASE_URI = f"sqlite:///{os.path.join(basedir, 'invitaciones.db')}"
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or f"sqlite:///{os.path.join(basedir, 'invitaciones.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Archivos
     UPLOAD_FOLDER = "uploads"
 
     # CORS
-    CORS_ORIGINS = ["http://localhost:5173"]
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")

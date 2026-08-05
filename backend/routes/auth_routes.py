@@ -203,4 +203,85 @@ def refresh():
     
     return jsonify({
         "access_token": nuevo_access_token
-    }), 200
+    }), 
+    
+# ==========================================
+#  RECUPERACIÓN DE CONTRASEÑA
+# ==========================================
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json()
+    email = data.get("email")
+
+    if not email:
+        return jsonify({"error": "El correo electrónico es obligatorio."}), 400
+
+    if not es_email_valido(email):
+        return jsonify({"error": "El formato del correo electrónico no es válido."}), 400
+
+    usuario = Usuario.query.filter_by(email=email).first()
+
+    # Si no existe el usuario, respondemos con el mismo mensaje por seguridad (evita mapeo de mails)
+    if not usuario:
+        return jsonify({"mensaje": "Si el correo esta registrado, recibiras un codigo para restablecer tu contraseña."}), 200
+
+    # Reutilizamos tu método existente para generar código de 6 dígitos
+    codigo = usuario.generar_codigo_verificacion()
+    db.session.commit()
+
+    try:
+        msg = EmailMessage(
+            subject="Recuperacion de contraseña - Invitaciones Digitales",
+            body=f"Hola {usuario.nombre},\n\nSolicitaste restablecer tu contraseña. Tu codigo de verificacion es: {codigo}\n\nEste codigo vencera en 15 minutos.\nSi no solicitaste este cambio, ignora este correo.",
+            to=[email]
+        )
+        msg.send()
+    except Exception as e:
+        print(f"Error enviando el correo de recuperación: {e}")
+        return jsonify({
+            "mensaje": "Se genero el codigo pero fallo el envio del mail.",
+            "codigo_desarrollo": codigo  # Manteniendo tu lógica de dev
+        }), 200
+
+    return jsonify({"mensaje": "Si el correo esta registrado, recibiras un codigo para restablecer tu contraseña."}), 200
+
+
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.get_json()
+    email = data.get("email")
+    codigo_ingresado = data.get("codigo")
+    nueva_password = data.get("password")
+
+    if not email or not codigo_ingresado or not nueva_password:
+        return jsonify({"error": "Todos los campos son obligatorios."}), 400
+
+    usuario = Usuario.query.filter_by(email=email).first()
+
+    if not usuario:
+        return jsonify({"error": "Usuario no encontrado."}), 404
+
+    # Validaciones del código
+    if usuario.codigo_verificacion != codigo_ingresado:
+        return jsonify({"error": "El código ingresado es incorrecto."}), 400
+
+    if usuario.codigo_expiracion < datetime.utcnow():
+        return jsonify({"error": "El código ha expirado. Por favor, solicita uno nuevo."}), 400
+
+    # Validamos la fortaleza de la nueva contraseña con tu misma función
+    es_segura, mensaje_error = es_password_segura(nueva_password)
+    if not es_segura:
+        return jsonify({"error": mensaje_error}), 400
+
+    # Aplicamos la nueva contraseña y limpiamos el código usado
+    usuario.set_password(nueva_password)
+    usuario.codigo_verificacion = None
+    usuario.codigo_expiracion = None
+    
+    # Si por alguna razón el usuario no estaba verificado, al recuperar la clave lo marcamos como activo
+    usuario.verificado = True
+    
+    db.session.commit()
+
+    return jsonify({"mensaje": "Contraseña actualizada con éxito. Ya puedes iniciar sesión."}), 200

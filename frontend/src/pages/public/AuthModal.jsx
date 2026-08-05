@@ -4,7 +4,9 @@ import {
   loginUsuario, 
   registrarUsuario, 
   verificarCuenta, 
-  reenviarCodigoAuth 
+  reenviarCodigoAuth,
+  solicitarRecuperacion,
+  restablecerPassword
 } from "../../services/EventService";
 
 import { 
@@ -14,6 +16,7 @@ import {
 function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const navigate = useNavigate();
   
+  // Vistas disponibles: "login" | "register" | "verify" | "forgot" | "reset"
   const [vista, setVista] = useState("login"); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -26,6 +29,9 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   const [form, setForm] = useState({ nombre: "", email: "", password: "", confirmPassword: "" });
   const [passwordsMatch, setPasswordsMatch] = useState(true);
+  
+  // Estado para controlar la aceptación de términos obligatoria
+  const [aceptaTerminos, setAceptaTerminos] = useState(false);
 
   useEffect(() => {
     if (vista === "register" && form.confirmPassword !== "") {
@@ -46,6 +52,9 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     setError("");
     setSuccessMsg("");
     setForm({ nombre: "", email: "", password: "", confirmPassword: "" });
+    setCodigoVerificacion("");
+    setAceptaTerminos(false);
+    setVista("login");
     onClose();
   };
 
@@ -87,13 +96,73 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     }
   };
 
-  // 🔐 Manejador principal para Login y Registro (Corregido)
+  // 🔒 Manejador para solicitar código de recuperación
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.email) {
+      setError("Por favor ingresa tu correo electrónico.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+
+    try {
+      const data = await solicitarRecuperacion(form.email);
+      setEmailParaVerificar(form.email);
+      setSuccessMsg(data.mensaje || "Código de recuperación enviado a tu correo.");
+      setVista("reset");
+    } catch (err) {
+      setError(err.response?.data?.error || err || "Error al solicitar el código de recuperación.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔑 Manejador para restablecer la contraseña con el código
+  const handleResetSubmit = async (e) => {
+    e.preventDefault();
+    if (codigoVerificacion.length !== 6) {
+      setError("El código debe tener exactamente 6 dígitos");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+
+    try {
+      const data = await restablecerPassword(emailParaVerificar, codigoVerificacion, form.password);
+      setSuccessMsg(data.mensaje || "Contraseña actualizada con éxito. Redirigiendo al login...");
+      
+      setTimeout(() => {
+        setVista("login");
+        setSuccessMsg("");
+        setForm({ ...form, password: "", confirmPassword: "" });
+        setCodigoVerificacion("");
+      }, 2000);
+    } catch (err) {
+      setError(err.response?.data?.error || err || "Error al restablecer la contraseña.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔐 Manejador principal para Login y Registro
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (vista === "register" && !passwordsMatch) {
       setError("Las contraseñas no coinciden");
       return;
     }
+
+    if (vista === "register" && !aceptaTerminos) {
+      setError("Debes aceptar los Términos y Condiciones para registrarte");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setSuccessMsg("");
@@ -107,7 +176,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       } else {
         const data = await loginUsuario(form.email, form.password);
         
-        // 🛡️ Doble chequeo: Nos aseguramos de que el backend realmente devolvió los tokens
         if (data && data.access_token) {
           localStorage.setItem("token", data.access_token);
           localStorage.setItem("refresh_token", data.refresh_token);
@@ -123,9 +191,6 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
         }
       }
     } catch (err) {
-      // 🚨 ¡LA CLAVE DE LA SOLUCIÓN! 🚨
-      // Si el login falla por cualquier motivo, limpiamos inmediatamente el localStorage
-      // para evitar que queden cadenas como "undefined" o "null" simulando una sesión activa.
       if (vista === "login") {
         localStorage.removeItem("token");
         localStorage.removeItem("refresh_token");
@@ -164,11 +229,25 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           {vista === "login" && "Bienvenido"}
           {vista === "register" && "Crear cuenta"}
           {vista === "verify" && "Verifica tu cuenta"}
+          {vista === "forgot" && "Recuperar contraseña"}
+          {vista === "reset" && "Nueva contraseña"}
         </h2>
         
         {vista === "verify" && (
           <p className="text-xs text-slate-500 mb-6 leading-relaxed">
             Ingresá los 6 números que enviamos a tu casilla <strong>{emailParaVerificar}</strong> para activar el alta.
+          </p>
+        )}
+
+        {vista === "forgot" && (
+          <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            Ingresá tu email registrado y te enviaremos un código de 6 dígitos para restablecer tu clave.
+          </p>
+        )}
+
+        {vista === "reset" && (
+          <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            Ingresá el código de 6 dígitos enviado a <strong>{emailParaVerificar}</strong> y tu nueva contraseña.
           </p>
         )}
 
@@ -184,7 +263,8 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </div>
         )}
 
-        {vista !== "verify" ? (
+        {/* ==================== VISTA LOGIN Y REGISTER ==================== */}
+        {(vista === "login" || vista === "register") && (
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             {vista === "register" && (
               <div>
@@ -205,7 +285,18 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contraseña</label>
+              <div className="flex justify-between items-center ml-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Contraseña</label>
+                {vista === "login" && (
+                  <button 
+                    type="button" 
+                    onClick={() => { setError(""); setSuccessMsg(""); setVista("forgot"); }}
+                    className="text-[10px] font-bold text-indigo-600 hover:underline transition-all"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                )}
+              </div>
               <div className="relative mt-1">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input type={showPass ? "text" : "password"} name="password" value={form.password} onChange={handleChange} required className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all" placeholder="••••••••" />
@@ -228,11 +319,40 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               </div>
             )}
 
+            {/* CHECKBOX DE TÉRMINOS Y CONDICIONES (Solo visible en vista register) */}
+            {vista === "register" && (
+              <div className="flex items-start gap-2.5 pt-1 pb-2">
+                <input
+                  type="checkbox"
+                  id="aceptarTerminos"
+                  checked={aceptaTerminos}
+                  onChange={(e) => setAceptaTerminos(e.target.checked)}
+                  required
+                  className="mt-0.5 h-4 w-4 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer transition-all"
+                />
+                <label htmlFor="aceptarTerminos" className="text-xs text-slate-500 leading-tight cursor-pointer select-none">
+                  Acepto los{" "}
+                  <a 
+                    href="/terminos" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-indigo-600 font-semibold underline hover:text-indigo-700 transition-colors"
+                  >
+                    Términos y Condiciones y las Políticas de Privacidad
+                  </a>{" "}
+                  de INVITTO.
+                </label>
+              </div>
+            )}
+
             <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-200">
               {loading ? <Loader2 className="animate-spin" size={18} /> : (vista === "register" ? "Registrarse" : "Ingresar")}
             </button>
           </form>
-        ) : (
+        )}
+
+        {/* ==================== VISTA ACTIVACIÓN DE CUENTA ==================== */}
+        {vista === "verify" && (
           <form onSubmit={handleVerifySubmit} className="space-y-5 mt-4">
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Código de activación</label>
@@ -267,13 +387,89 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           </form>
         )}
 
+        {/* ==================== VISTA SOLICITAR RECUPERACIÓN ==================== */}
+        {vista === "forgot" && (
+          <form onSubmit={handleForgotSubmit} className="space-y-4 mt-4">
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Email</label>
+              <div className="relative mt-1">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="email" 
+                  name="email" 
+                  value={form.email} 
+                  onChange={handleChange} 
+                  required 
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all" 
+                  placeholder="ejemplo@correo.com" 
+                />
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-200">
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Enviar Código"}
+            </button>
+          </form>
+        )}
+
+        {/* ==================== VISTA NAVEGAR A RESTABLECER ==================== */}
+        {vista === "reset" && (
+          <form onSubmit={handleResetSubmit} className="space-y-4 mt-4">
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Código de 6 dígitos</label>
+              <div className="relative mt-1">
+                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="text" 
+                  maxLength="6" 
+                  value={codigoVerificacion} 
+                  onChange={(e) => setCodigoVerificacion(e.target.value.replace(/\D/g, ""))} 
+                  required 
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-lg font-mono font-bold tracking-[0.4em] text-center outline-none focus:border-indigo-500 transition-all" 
+                  placeholder="123456" 
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nueva Contraseña</label>
+              <div className="relative mt-1">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type={showPass ? "text" : "password"} 
+                  name="password" 
+                  value={form.password} 
+                  onChange={handleChange} 
+                  required 
+                  className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm outline-none focus:border-indigo-500 transition-all" 
+                  placeholder="••••••••" 
+                />
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all flex items-center justify-center shadow-lg shadow-emerald-100">
+              {loading ? <Loader2 className="animate-spin" size={18} /> : "Cambiar Contraseña"}
+            </button>
+          </form>
+        )}
+
+        {/* NAVEGACIÓN INFERIOR */}
         <div className="mt-8 text-center">
-          {vista === "verify" ? (
-            <button onClick={() => { setVista("login"); setError(""); setSuccessMsg(""); }} className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:underline">
+          {vista !== "login" && vista !== "register" ? (
+            <button 
+              onClick={() => { setVista("login"); setError(""); setSuccessMsg(""); }} 
+              className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:underline"
+            >
               Volver al Login
             </button>
           ) : (
-            <button onClick={() => { setVista(vista === "login" ? "register" : "login"); setError(""); setSuccessMsg(""); }} className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:underline">
+            <button 
+              onClick={() => { setVista(vista === "login" ? "register" : "login"); setError(""); setSuccessMsg(""); }} 
+              className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:underline"
+            >
               {vista === "login" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Ingresa"}
             </button>
           )}

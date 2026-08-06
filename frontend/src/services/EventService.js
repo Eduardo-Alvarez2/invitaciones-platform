@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://192.168.1.5:5000/api";
+const API_URL = "https://invitto.cloud/api";
 
 // ==========================================
 // 🔐 CONFIGURACIÓN DEL INTERCEPTOR DE REFRESH TOKEN

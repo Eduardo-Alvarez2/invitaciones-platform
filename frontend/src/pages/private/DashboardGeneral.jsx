@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 //  Cambiamos axios por la instancia configurada 'api'
-import { api } from "../../services/api"; 
+import { api } from "../../services/EventService"; 
 import { 
   Plus, Calendar, MapPin, 
   Layout, Settings, CreditCard, CheckCircle, Clock 

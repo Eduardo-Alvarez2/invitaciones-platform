@@ -11,7 +11,7 @@ confirmacion_bp = Blueprint("confirmacion", __name__)
 
 
 
-@confirmacion_bp.route("eventos/<string:slug>/confirmar", methods=["POST"])
+@confirmacion_bp.route("/eventos/<string:slug>/confirmar", methods=["POST"])
 def confirmar_asistencia(slug):
     evento = Evento.query.filter_by(slug=slug, activo=True).first()
 

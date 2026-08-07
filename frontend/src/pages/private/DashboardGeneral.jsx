@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+//  Cambiamos axios por la instancia configurada 'api'
+import { api } from "../services/api"; 
 import { 
   Plus, Calendar, MapPin, 
   Layout, Settings, CreditCard, CheckCircle, Clock 
 } from "lucide-react";
+
+// Detecta si estamos en Producción o Desarrollo para renderizar la imagen
+const BASE_URL = import.meta.env.PROD 
+  ? "https://invitto.cloud" 
+  : "http://localhost:5000";
 
 function DashboardGeneral() {
   const [eventos, setEventos] = useState([]);
@@ -13,10 +19,8 @@ function DashboardGeneral() {
   useEffect(() => {
     const fetchEventos = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get("http://localhost:5000/api/eventos", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // ✅ Usamos 'api.get' que ya adjunta el token JWT automáticamente
+        const res = await api.get("/eventos");
         setEventos(res.data);
       } catch (error) {
         console.error("Error al cargar eventos:", error);
@@ -99,7 +103,8 @@ function DashboardGeneral() {
                   <div className="h-40 w-full overflow-hidden relative">
                     {evento.imagen_portada ? (
                       <img 
-                        src={`http://localhost:5000${evento.imagen_portada}`} 
+                        // ✅ Usamos la constante dinámica BASE_URL
+                        src={`${BASE_URL}${evento.imagen_portada}`} 
                         alt={evento.nombre}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                       />

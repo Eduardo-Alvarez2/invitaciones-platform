@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import { getEventoBySlug } from "../../services/EventService";
 import Template from "../../templates/Template";
 
-const API_BASE = "http://localhost:5000"; 
+// ✅ Detecta si estamos en Producción (invitto.cloud) o Desarrollo (localhost)
+const API_BASE = import.meta.env.PROD 
+  ? "https://invitto.cloud" 
+  : "http://localhost:5000"; 
 
 function InvitacionPublica() {
   const { slug } = useParams();

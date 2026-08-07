@@ -2,6 +2,11 @@ import HeroClassic from "./styles/HeroClassic";
 import HeroModern from "./styles/HeroModern";
 import HeroMinimal from "./styles/HeroMinimal";
 
+// Detecta si estamos en Producción o Desarrollo
+const BASE_URL = import.meta.env.PROD 
+  ? "https://invitto.cloud" 
+  : "http://localhost:5000";
+
 /**
  * HeroSection (Lógica de Orquestación)
  * Centraliza datos y decide qué variante renderizar.
@@ -30,8 +35,8 @@ function HeroSection({ titulo, mensaje, imagen, variant = "modern" }) {
       return img;
     }
 
-    // fallback: backend
-    return `http://localhost:5000/uploads/${img}`;
+    // fallback: backend (se reemplaza localhost:5000 por la constante BASE_URL)
+    return `${BASE_URL}/uploads/${img}`;
   };
 
   const props = {

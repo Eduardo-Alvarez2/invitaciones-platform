@@ -241,7 +241,6 @@ def forgot_password():
         print(f"Error enviando el correo de recuperación: {e}")
         return jsonify({
             "mensaje": "Se genero el codigo pero fallo el envio del mail.",
-            "codigo_desarrollo": codigo  # Manteniendo tu lógica de dev
         }), 200
 
     return jsonify({"mensaje": "Si el correo esta registrado, recibiras un codigo para restablecer tu contraseña."}), 200

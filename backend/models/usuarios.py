@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime, timedelta
-import random  # 👈 Para generar el código de 6 dígitos aleatorio
+import random  #  Para generar el código de 6 dígitos aleatorio
 from database import db
 from werkzeug.security import generate_password_hash, check_password_hash
 

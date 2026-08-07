@@ -10,6 +10,7 @@ from utils.slug import generar_slug_unico
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from services.storage_service import StorageService
 from services.mp_service import MercadoPagoService
+import mercadopago
 import traceback
 import os
 import uuid
@@ -520,58 +521,57 @@ def crear_preferencia_pago(id):
 @evento_bp.route("/webhook-pago", methods=["POST"])
 def webhook_pago():
     try:
-        # 1. Obtener datos de la URL o del JSON (cubrimos todas las posibilidades)
-        data = request.get_json() if request.is_json else {}
+        # 1. Obtener datos (usamos silent=True para que no crashee si no hay JSON)
+        data = request.get_json(silent=True) or {}
         
-        # Mercado Pago suele mandar 'data.id' en la URL o {'data': {'id': '...'}} en el body
         payment_id = request.args.get('data.id') or data.get('data', {}).get('id')
         topic = request.args.get('type') or data.get('type')
 
-        print(f"🔔 Webhook Recibido - Tipo: {topic}, ID: {payment_id}")
+        # 🚨 FLUSH=TRUE es vital para ver los logs en la consola en tiempo real
+        print(f"🔔 Webhook Recibido - Tipo: {topic}, ID: {payment_id}", flush=True)
 
         if topic == 'payment' and payment_id:
-            # 2. Consultar a Mercado Pago para verificar que el pago es real y está aprobado
+            # 2. Consultar a Mercado Pago
             sdk = mercadopago.SDK(current_app.config["MP_ACCESS_TOKEN"])
             payment_info = sdk.payment().get(payment_id)
             
-            if payment_info["status"] == 200 or payment_info["status"] == 201:
+            if payment_info["status"] in [200, 201]:
                 payment_data = payment_info["response"]
                 evento_id = payment_data.get("external_reference")
                 status = payment_data.get("status")
                 
-                print(f"🧐 Detalle del pago {payment_id}: Evento {evento_id}, Status: {status}")
+                print(f"🧐 Detalle del pago {payment_id}: Evento '{evento_id}', Status: '{status}'", flush=True)
 
                 if evento_id and status == "approved":
-                    # 3. Actualizar la base de datos
-                    evento = Evento.query.get(int(evento_id))
+                    # 3. Validar que evento_id sea un número antes de buscar en la DB
+                    try:
+                        evento_id_int = int(evento_id)
+                    except (ValueError, TypeError):
+                        print(f"❌ Error: El external_reference '{evento_id}' no es un número válido.", flush=True)
+                        return jsonify({"status": "received"}), 200
+
+                    # 4. Actualizar la base de datos
+                    evento = Evento.query.get(evento_id_int)
                     if evento:
-                        # Evitamos procesar si ya estaba pagado (opcional, pero buena práctica)
                         if not evento.pagado:
                             evento.pagado = True
                             evento.status_pago = "approved"
                             evento.payment_id = str(payment_id)
                             db.session.commit()
-                            print(f"✅ ¡ÉXITO! Evento {evento_id} activado correctamente.")
+                            print(f"✅ ¡ÉXITO! Evento {evento_id_int} activado en DB.", flush=True)
                         else:
-                            print(f"ℹ️ El evento {evento_id} ya figuraba como pagado.")
+                            print(f"ℹ️ El evento {evento_id_int} ya estaba pagado.", flush=True)
                     else:
-                        print(f"❌ Error: No se encontró el evento {evento_id} en la DB.")
+                        print(f"❌ Error: No se encontró el evento {evento_id_int} en la DB.", flush=True)
             else:
-                print(f"❌ Error al consultar el pago en Mercado Pago: {payment_info['status']}")
+                print(f"❌ Error de MP SDK. Status devuelto: {payment_info['status']}", flush=True)
 
     except Exception as e:
-        print(f"💥 ERROR CRÍTICO en Webhook: {str(e)}")
-        # Importante: aunque falle tu código, devolvemos 200 para que MP no nos sature a reintentos
+        # Ahora sí veremos por qué explota si llega a fallar algo
+        print(f"💥 ERROR CRÍTICO en Webhook: {str(e)}", flush=True)
         return jsonify({"error": str(e)}), 200
 
-    # Siempre responder 200 a MP
     return jsonify({"status": "received"}), 200
-
-# Extensiones de audio que vamos a permitir
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'mpeg', 'm4a'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
 
 # SUBIR MÚSICA (Refactorizado)
 @evento_bp.route('/eventos/<int:evento_id>/musica', methods=['POST'])

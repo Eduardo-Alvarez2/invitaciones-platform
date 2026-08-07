@@ -203,7 +203,7 @@ def refresh():
     
     return jsonify({
         "access_token": nuevo_access_token
-    }), 
+    }), 200
     
 # ==========================================
 #  RECUPERACIÓN DE CONTRASEÑA

@@ -27,7 +27,8 @@ class Config:
     # Mercado Pago
     MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")
     MP_PUBLIC_KEY = os.environ.get("MP_PUBLIC_KEY")
-    
+    PRECIO_INVITACION = float(os.getenv("PRECIO_INVITACION", 30000.0))
+
     # Base de datos
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or f"sqlite:///{os.path.join(basedir, 'invitaciones.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False

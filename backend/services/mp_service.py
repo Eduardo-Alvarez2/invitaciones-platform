@@ -25,7 +25,7 @@ class MercadoPagoService:
                 {
                     "title": f"Activación Invitación: {evento.nombre}",
                     "quantity": 1,
-                    "unit_price": 30000.0,
+                    "unit_price": float(current_app.config.get("PRECIO_INVITACION", 30000.0)),
                     "currency_id": "ARS"
                 }
             ],

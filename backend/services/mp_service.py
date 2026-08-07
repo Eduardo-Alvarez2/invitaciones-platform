@@ -17,6 +17,9 @@ class MercadoPagoService:
         """
         sdk = cls._get_sdk()
         
+        # 💡 Base URL de producción
+        BASE_URL = "https://invitto.cloud"
+        
         preference_data = {
             "items": [
                 {
@@ -26,13 +29,17 @@ class MercadoPagoService:
                     "currency_id": "ARS"
                 }
             ],
+            # ✅ Redirecciones a tu dominio de producción con HTTPS
             "back_urls": {
-                "success": f"http://127.0.0.1:5173/dashboard/evento/{evento.id}",
-                "failure": f"http://127.0.0.1:5173/checkout/{evento.id}",
-                "pending": f"http://127.0.0.1:5173/dashboard/evento/{evento.id}"
+                "success": f"{BASE_URL}/dashboard/evento/{evento.id}?pago=exitoso",
+                "failure": f"{BASE_URL}/checkout/{evento.id}?pago=fallido",
+                "pending": f"{BASE_URL}/dashboard/evento/{evento.id}?pago=pendiente"
             },
+            "auto_return": "approved",
             "external_reference": str(evento.id),
-            "notification_url": "https://situation-mouth-step.ngrok-free.dev/api/webhook-pago"
+            
+            # 🚨 CRÍTICO: URL pública oficial en tu VPS para recibir la confirmación de MP
+            "notification_url": f"{BASE_URL}/api/webhook-pago"
         }
 
         preference_result = sdk.preference().create(preference_data)

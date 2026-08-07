@@ -1,7 +1,10 @@
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
 
+# Carga explícita del archivo .env
 basedir = os.path.abspath(os.path.dirname(__file__))
+load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
     # Seguridad
@@ -12,13 +15,14 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)    
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
-    # CONFIGURACIÓN DE CORREO (Gmail / Mail corporativo)
-    MAIL_SERVER = os.environ.get("MAIL_SERVER") or 'smtp.gmail.com'
-    MAIL_PORT = int(os.environ.get("MAIL_PORT") or 587)
-    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS") or True
+    # CONFIGURACIÓN DE CORREO (Brevo / Mail corporativo)
+    MAIL_SERVER = os.environ.get("MAIL_SERVER", 'smtp-relay.brevo.com')
+    MAIL_PORT = int(os.environ.get("MAIL_PORT", 587))
+    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "True").lower() in ["true", "on", "1"]
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_USERNAME")
+    # Usa MAIL_DEFAULT_SENDER del .env, y si no existe usa MAIL_USERNAME
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER") or os.environ.get("MAIL_USERNAME")
 
     # Mercado Pago
     MP_ACCESS_TOKEN = os.environ.get("MP_ACCESS_TOKEN")

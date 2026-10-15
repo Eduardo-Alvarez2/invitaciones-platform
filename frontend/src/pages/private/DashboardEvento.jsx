@@ -22,8 +22,8 @@ import { jsPDF } from "jspdf";
 import autoTable, { applyPlugin } from "jspdf-autotable";
 
 applyPlugin(jsPDF);
-// Usamos la IP fija para que el celu resuelva bien las imágenes estáticas del backend
-const API_URL = "http://192.168.1.5:5000";
+
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 function DashboardEvento() {
   const { id } = useParams();
